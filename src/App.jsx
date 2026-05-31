@@ -8,7 +8,7 @@ import LabelManagement from "./components/LabelManagement";
 import { BoardHeader, Sidebar, Topbar } from "./components/Layout";
 import TaskBoard from "./components/TaskBoard";
 import TaskModal from "./components/TaskModal";
-import { chemicalColors, columnColors, currentUser, defaultChemicalColor, defaultMembers, initialData } from "./data";
+import { chemicalColors, columnColors, currentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, initialData, labelColors } from "./data";
 import { loadInitialData, saveStoredData } from "./db";
 import { normalizeData } from "./model";
 import { sanitizeRichText, stripRichText } from "./richText";
@@ -31,9 +31,11 @@ function App() {
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState("");
   const [selectedChemical, setSelectedChemical] = useState("");
+  const [selectedPriority, setSelectedPriority] = useState("");
   const [newChemicalName, setNewChemicalName] = useState("");
   const [newChemicalColor, setNewChemicalColor] = useState(defaultChemicalColor);
   const [editingCompanyDraft, setEditingCompanyDraft] = useState(null);
+  const [theme, setTheme] = useState(() => localStorage.getItem("kieu-assistant-theme") || "light");
 
   useEffect(() => {
     let isActive = true;
@@ -61,10 +63,15 @@ function App() {
     });
   }, [data, isDataReady]);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("kieu-assistant-theme", theme);
+  }, [theme]);
+
   const members = data?.members || defaultMembers;
   const customMembers = members.filter((person) => person !== currentUser.name);
   const availableLabels = useMemo(
-    () => [...(data?.labels || [])].sort((first, second) => first.localeCompare(second)),
+    () => [...(data?.labels || [])].sort((first, second) => first.name.localeCompare(second.name)),
     [data?.labels],
   );
   const filteredTasks = useMemo(() => {
@@ -87,10 +94,11 @@ function App() {
       const matchesAssignee = !showMyTasks || task.assignee === currentUser.name;
       const matchesCompany = !selectedCompany || task.companyId === selectedCompany;
       const matchesChemical = !selectedChemical || task.chemicals.includes(selectedChemical);
+      const matchesPriority = !selectedPriority || task.priority === selectedPriority;
 
-      return matchesSearch && matchesLabels && matchesAssignee && matchesCompany && matchesChemical;
+      return matchesSearch && matchesLabels && matchesAssignee && matchesCompany && matchesChemical && matchesPriority;
     });
-  }, [data?.tasks, data?.chemicals, data?.companies, search, selectedLabels, showMyTasks, selectedCompany, selectedChemical]);
+  }, [data?.tasks, data?.chemicals, data?.companies, search, selectedLabels, showMyTasks, selectedCompany, selectedChemical, selectedPriority]);
 
   if (storageError) {
     return <div className="storage-state storage-state-error">{storageError}</div>;
@@ -117,13 +125,13 @@ function App() {
     resetTaskInputs();
   }
 
-  function startNewTask(columnId = data.columns[0]?.id) {
+  function startNewTask() {
     const sequence = Math.max(130, ...data.tasks.map((task) => Number(task.key.split("-")[1]) || 0)) + 1;
 
     setSelectedTaskId("new");
     setTaskDraft({
       id: `task-${Date.now()}`,
-      key: `TF-${sequence}`,
+      key: `KA-${sequence}`,
       title: "",
       description: "",
       type: "task",
@@ -133,7 +141,7 @@ function App() {
       labels: [],
       companyId: "",
       chemicals: [],
-      columnId,
+      columnId: "todo",
       comments: [],
     });
     resetTaskInputs();
@@ -146,7 +154,7 @@ function App() {
       ...taskDraft,
       title: taskDraft.title.trim(),
       description: sanitizeRichText(taskDraft.description),
-      labels: [...new Set(taskDraft.labels.filter((label) => data.labels.includes(label)))],
+      labels: [...new Set(taskDraft.labels.filter((label) => data.labels.some((item) => item.name === label)))],
     };
 
     updateData((current) => ({
@@ -171,17 +179,29 @@ function App() {
     setTaskDraft(null);
   }
 
+  function deleteTaskFromBoard(task) {
+    if (!window.confirm(`Xóa công việc ${task.key}?`)) return;
+    updateData((current) => ({
+      ...current,
+      tasks: current.tasks.filter((item) => item.id !== task.id),
+    }));
+  }
+
   function saveColumn() {
     if (!columnDraft?.title.trim()) return;
 
     if (columnDraft.isNew) {
-      updateData((current) => ({
-        ...current,
-        columns: [
-          ...current.columns,
-          { id: `column-${Date.now()}`, title: columnDraft.title.trim(), color: columnDraft.color },
-        ],
-      }));
+      updateData((current) => {
+        const doneIndex = current.columns.findIndex((column) => column.id === "done");
+        const columns = [...current.columns];
+        columns.splice(doneIndex < 0 ? columns.length : doneIndex, 0, {
+          id: `column-${Date.now()}`,
+          title: columnDraft.title.trim(),
+          color: columnDraft.color,
+        });
+
+        return { ...current, columns };
+      });
     } else {
       updateData((current) => ({
         ...current,
@@ -196,7 +216,7 @@ function App() {
   }
 
   function deleteColumn() {
-    if (!columnDraft || columnDraft.isNew) return;
+    if (!columnDraft || columnDraft.isNew || ["todo", "done"].includes(columnDraft.id)) return;
 
     const taskCount = data.tasks.filter((task) => task.columnId === columnDraft.id).length;
     if (taskCount > 0) {
@@ -341,12 +361,12 @@ function App() {
     if (editingCompanyDraft?.id === companyId) setEditingCompanyDraft(null);
   }
 
-  function addLabel(value) {
+  function addLabel(value, color = defaultLabelColor) {
     const label = value.trim();
     if (!label) return false;
 
     const duplicate = data.labels.find(
-      (item) => item.toLocaleLowerCase("vi") === label.toLocaleLowerCase("vi"),
+      (item) => item.name.toLocaleLowerCase("vi") === label.toLocaleLowerCase("vi"),
     );
     if (duplicate) {
       window.alert("Tên nhãn đã tồn tại trong hệ thống.");
@@ -355,20 +375,21 @@ function App() {
 
     updateData((current) => ({
       ...current,
-      labels: [...current.labels, label],
+      labels: [...current.labels, { name: label, color }],
     }));
     return true;
   }
 
-  function renameLabel(currentLabel, value) {
+  function renameLabel(currentLabel, value, color) {
     const nextLabel = value.trim();
     if (!nextLabel) return false;
-    if (nextLabel === currentLabel) return true;
+    const currentItem = data.labels.find((item) => item.name === currentLabel);
+    if (nextLabel === currentLabel && (!color || color === currentItem?.color)) return true;
 
     const duplicate = data.labels.find(
       (item) =>
-        item !== currentLabel &&
-        item.toLocaleLowerCase("vi") === nextLabel.toLocaleLowerCase("vi"),
+        item.name !== currentLabel &&
+        item.name.toLocaleLowerCase("vi") === nextLabel.toLocaleLowerCase("vi"),
     );
     if (duplicate) {
       window.alert("Tên nhãn đã tồn tại trong hệ thống.");
@@ -377,7 +398,9 @@ function App() {
 
     updateData((current) => ({
       ...current,
-      labels: current.labels.map((label) => (label === currentLabel ? nextLabel : label)),
+      labels: current.labels.map((label) =>
+        label.name === currentLabel ? { ...label, name: nextLabel, color: color || label.color } : label,
+      ),
       tasks: current.tasks.map((task) => ({
         ...task,
         labels: task.labels.map((label) => (label === currentLabel ? nextLabel : label)),
@@ -399,7 +422,7 @@ function App() {
 
     updateData((current) => ({
       ...current,
-      labels: current.labels.filter((item) => item !== label),
+      labels: current.labels.filter((item) => item.name !== label),
     }));
     setSelectedLabels((current) => current.filter((item) => item !== label));
   }
@@ -433,7 +456,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar activeView={activeView} currentUser={currentUser} members={members} setActiveView={setActiveView} />
+      <Sidebar activeView={activeView} currentUser={currentUser} members={members} setActiveView={setActiveView} setTheme={setTheme} theme={theme} />
       <main className="main-content">
         <Topbar currentUser={currentUser} members={members} search={search} setSearch={setSearch} />
         {activeView === "board" ? (
@@ -448,11 +471,13 @@ function App() {
               selectedChemical={selectedChemical}
               selectedCompany={selectedCompany}
               selectedLabels={selectedLabels}
+              selectedPriority={selectedPriority}
               setIsLabelFilterOpen={setIsLabelFilterOpen}
               setSearch={setSearch}
               setSelectedChemical={setSelectedChemical}
               setSelectedCompany={setSelectedCompany}
               setSelectedLabels={setSelectedLabels}
+              setSelectedPriority={setSelectedPriority}
               setShowMyTasks={setShowMyTasks}
               showMyTasks={showMyTasks}
               toggleLabelFilter={toggleLabelFilter}
@@ -464,6 +489,7 @@ function App() {
               columnColors={columnColors}
               columns={data.columns}
               currentUser={currentUser}
+              deleteTask={deleteTaskFromBoard}
               draggedTaskId={draggedTaskId}
               dragTargetId={dragTargetId}
               filteredTasks={filteredTasks}
@@ -471,9 +497,9 @@ function App() {
               moveTask={moveTask}
               openTask={openTask}
               setColumnDraft={setColumnDraft}
+              labels={data.labels}
               setDraggedTaskId={setDraggedTaskId}
               setDragTargetId={setDragTargetId}
-              startNewTask={startNewTask}
             />
           </>
         ) : activeView === "chemicals" ? (
@@ -500,6 +526,7 @@ function App() {
             addLabel={addLabel}
             deleteLabel={deleteLabel}
             labels={data.labels}
+            labelColors={labelColors}
             renameLabel={renameLabel}
             tasks={data.tasks}
           />

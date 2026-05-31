@@ -6,10 +6,21 @@ export default function ColumnModal({ columnColors, columnDraft, deleteColumn, s
   return (
     <div className="modal-backdrop" onMouseDown={() => setColumnDraft(null)}>
       <section className="small-modal" onMouseDown={(event) => event.stopPropagation()}>
-        <header><div><p className="eyebrow">TRẠNG THÁI CÔNG VIỆC</p><h2>{columnDraft.isNew ? "Thêm cột mới" : "Chỉnh sửa cột"}</h2></div><button className="modal-icon" onClick={() => setColumnDraft(null)}><Icon name="close" /></button></header>
+        <header>
+          <div>
+            <p className="eyebrow">TRẠNG THÁI CÔNG VIỆC</p>
+            <h2>{columnDraft.isNew ? "Thêm cột mới" : "Chỉnh sửa cột"}</h2>
+          </div>
+          <button className="modal-icon" onClick={() => setColumnDraft(null)}><Icon name="close" /></button>
+        </header>
         <label className="field">
           <span>Tên cột</span>
-          <input autoFocus value={columnDraft.title} onChange={(event) => setColumnDraft({ ...columnDraft, title: event.target.value })} placeholder="Ví dụ: Kiểm thử" />
+          <input
+            autoFocus
+            onChange={(event) => setColumnDraft({ ...columnDraft, title: event.target.value })}
+            placeholder="Ví dụ: Đang xử lý"
+            value={columnDraft.title}
+          />
         </label>
         <div className="color-field">
           <span>Màu hiển thị <small>Chọn màu nhận diện cho trạng thái</small></span>

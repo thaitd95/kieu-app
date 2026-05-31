@@ -1,11 +1,11 @@
 import { Avatar, Icon } from "./Common";
 
-export function Sidebar({ activeView, currentUser, members, setActiveView }) {
+export function Sidebar({ activeView, currentUser, members, setActiveView, setTheme, theme }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
         <span className="brand-icon"><Icon name="logo" size={21} /></span>
-        <span>Taskflow</span>
+        <span>KieuAssistant</span>
       </div>
       <nav className="sidebar-nav">
         <button className={`nav-item ${activeView === "board" ? "active" : ""}`} onClick={() => setActiveView("board")}><Icon name="board" />Bảng công việc</button>
@@ -19,10 +19,21 @@ export function Sidebar({ activeView, currentUser, members, setActiveView }) {
       <div className="sidebar-project">
         <p>DỰ ÁN</p>
         <div className="project-chip">
-          <span className="project-symbol">TF</span>
-          <span><strong>Taskflow Web</strong><small>Software project</small></span>
+          <span className="project-symbol">KA</span>
+          <span><strong>KieuAssistant</strong><small>Task management</small></span>
         </div>
       </div>
+      <button
+        aria-label={theme === "light" ? "Chuyển sang dark mode" : "Chuyển sang light mode"}
+        aria-pressed={theme === "dark"}
+        className="sidebar-theme-toggle"
+        onClick={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
+        title={theme === "light" ? "Chuyển sang dark mode" : "Chuyển sang light mode"}
+        type="button"
+      >
+        <Icon name={theme === "light" ? "moon" : "sun"} size={17} />
+        <span>{theme === "light" ? "Dark mode" : "Light mode"}</span>
+      </button>
       <div className="sidebar-footer">
         <Avatar name={currentUser.name} index={members.indexOf(currentUser.name)} />
         <span><strong>{currentUser.name}</strong><small>{currentUser.role}</small></span>
@@ -35,7 +46,7 @@ export function Sidebar({ activeView, currentUser, members, setActiveView }) {
 export function Topbar({ currentUser, members, search, setSearch }) {
   return (
     <header className="topbar">
-      <div className="breadcrumbs"><span>Dự án</span><Icon name="chevron" size={14} /><strong>Taskflow Web</strong></div>
+      <div className="breadcrumbs"><span>Dự án</span><Icon name="chevron" size={14} /><strong>KieuAssistant</strong></div>
       <div className="topbar-actions">
         <label className="search-box"><Icon name="search" size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm kiếm" /></label>
         <button className="icon-button"><Icon name="grid" size={18} /></button>
@@ -50,7 +61,7 @@ export function BoardHeader({ startNewTask }) {
   return (
     <section className="board-header">
       <div>
-        <p className="eyebrow">TASKFLOW WEB</p>
+        <p className="eyebrow">KIEUASSISTANT</p>
         <h1>Bảng công việc</h1>
         <p className="subtitle">Theo dõi tiến độ nhập hóa chất từ các công ty.</p>
       </div>

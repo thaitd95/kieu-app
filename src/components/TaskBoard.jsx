@@ -1,11 +1,14 @@
 import { Avatar, Icon, Priority, TypeIcon } from "./Common";
+import { priorityColors } from "../data";
 
-function TaskCard({ assignTask, chemicals, companies, currentUser, draggedTaskId, members, openTask, setDragTargetId, setDraggedTaskId, task }) {
+function TaskCard({ assignTask, chemicals, companies, currentUser, deleteTask, draggedTaskId, labels, members, openTask, setDragTargetId, setDraggedTaskId, task }) {
   const company = companies.find((item) => item.id === task.companyId);
+  const isDone = task.columnId === "done";
+  const taskColor = isDone ? "#1f845a" : priorityColors[task.priority];
 
   return (
     <article
-      className={`task-card ${task.assignee === currentUser.name ? "task-card-personal" : ""} ${draggedTaskId === task.id ? "dragging" : ""}`}
+      className={`task-card ${task.assignee === currentUser.name ? "task-card-personal" : ""} ${isDone ? "task-card-done" : ""} ${draggedTaskId === task.id ? "dragging" : ""}`}
       draggable
       onClick={() => openTask(task)}
       onDragEnd={() => {
@@ -17,13 +20,25 @@ function TaskCard({ assignTask, chemicals, companies, currentUser, draggedTaskId
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", task.id);
       }}
+      style={{ "--task-color": taskColor }}
     >
       <div className="task-card-top">
         <div className="task-card-markers">
           <TypeIcon type={task.type} />
           {task.assignee === currentUser.name && <span className="my-task-badge">Việc của tôi</span>}
         </div>
-        <button className="task-more" onClick={(event) => event.stopPropagation()}><Icon name="more" size={15} /></button>
+        <button
+          aria-label={`Xóa công việc ${task.key}`}
+          className="task-more"
+          onClick={(event) => {
+            event.stopPropagation();
+            deleteTask(task);
+          }}
+          title="Xóa công việc"
+          type="button"
+        >
+          <Icon name="trash" size={14} />
+        </button>
       </div>
       <h3>{task.title}</h3>
       {(company || task.chemicals.length > 0) && (
@@ -51,7 +66,10 @@ function TaskCard({ assignTask, chemicals, companies, currentUser, draggedTaskId
         </div>
       )}
       <div className="label-list">
-        {task.labels.slice(0, 2).map((label) => <span key={label}>{label}</span>)}
+        {task.labels.slice(0, 2).map((label) => {
+          const labelColor = labels.find((item) => item.name === label)?.color || "#626f86";
+          return <span key={label} style={{ "--label-color": labelColor }}>{label}</span>;
+        })}
       </div>
       <label
         className="quick-assignee"
@@ -86,16 +104,17 @@ export default function TaskBoard({
   columnColors,
   columns,
   currentUser,
+  deleteTask,
   draggedTaskId,
   dragTargetId,
   filteredTasks,
+  labels,
   members,
   moveTask,
   openTask,
   setColumnDraft,
   setDraggedTaskId,
   setDragTargetId,
-  startNewTask,
 }) {
   return (
     <section className="board">
@@ -126,7 +145,13 @@ export default function TaskBoard({
                 <h2>{column.title}</h2>
                 <span className="count">{tasks.length}</span>
               </div>
-              <button className="plain-icon-button" onClick={() => setColumnDraft({ ...column })}><Icon name="more" size={16} /></button>
+              {["todo", "done"].includes(column.id) ? (
+                <span className="fixed-column-label">Cố định</span>
+              ) : (
+                <button className="plain-icon-button" onClick={() => setColumnDraft({ ...column })}>
+                  <Icon name="more" size={16} />
+                </button>
+              )}
             </div>
             <div className="task-list">
               {tasks.map((task) => (
@@ -135,8 +160,10 @@ export default function TaskBoard({
                   chemicals={chemicals}
                   companies={companies}
                   currentUser={currentUser}
+                  deleteTask={deleteTask}
                   draggedTaskId={draggedTaskId}
                   key={task.id}
+                  labels={labels}
                   members={members}
                   openTask={openTask}
                   setDraggedTaskId={setDraggedTaskId}
@@ -144,7 +171,6 @@ export default function TaskBoard({
                   task={task}
                 />
               ))}
-              <button className="add-task-button" onClick={() => startNewTask(column.id)}><Icon name="plus" size={15} />Tạo công việc</button>
             </div>
           </div>
         );

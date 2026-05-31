@@ -51,13 +51,14 @@ function LabelMultiSelect({ items, setTaskDraft, taskDraft }) {
       {items.length > 0 ? (
         <div className="chemical-options label-options">
           {items.map((label) => (
-            <label key={label}>
+            <label key={label.name}>
               <input
-                checked={taskDraft.labels.includes(label)}
-                onChange={() => toggleLabel(label)}
+                checked={taskDraft.labels.includes(label.name)}
+                onChange={() => toggleLabel(label.name)}
                 type="checkbox"
               />
-              <span>{label}</span>
+              <i className="chemical-color-dot" style={{ backgroundColor: label.color }} />
+              <span>{label.name}</span>
             </label>
           ))}
         </div>

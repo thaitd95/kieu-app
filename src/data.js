@@ -27,22 +27,39 @@ export const chemicalColors = [
 ];
 
 export const defaultChemicalColor = chemicalColors[0];
+export const labelColors = [
+  "#0c66e4",
+  "#1f845a",
+  "#7f5f01",
+  "#6e5dc6",
+  "#c9372c",
+  "#227d9b",
+  "#a54800",
+  "#ae4787",
+];
+export const defaultLabelColor = labelColors[0];
+
+export const priorityColors = {
+  low: "#0c66e4",
+  medium: "#7f5f01",
+  high: "#e06c00",
+  highest: "#c9372c",
+};
+
+export const fixedColumns = [
+  { id: "todo", title: "To do", color: "#0c66e4" },
+  { id: "done", title: "Done", color: "#1f845a" },
+];
 
 export const initialData = {
   companies: [],
   chemicals: [],
   labels: [],
-  columns: [
-    { id: "backlog", title: "Backlog", color: "#8590a2" },
-    { id: "todo", title: "To do", color: "#0c66e4" },
-    { id: "progress", title: "In progress", color: "#7f5f01" },
-    { id: "review", title: "In review", color: "#6e5dc6" },
-    { id: "done", title: "Done", color: "#1f845a" },
-  ],
+  columns: fixedColumns,
   tasks: [
     {
       id: "task-1",
-      key: "TF-124",
+      key: "KA-124",
       title: "Thiết kế luồng onboarding cho người dùng mới",
       description:
         "Xây dựng luồng hướng dẫn ngắn gọn để người dùng mới hiểu các chức năng chính của sản phẩm trong lần đăng nhập đầu tiên.",
@@ -51,7 +68,7 @@ export const initialData = {
       assignee: "Mỹ Kiều",
       dueDate: "2026-06-05",
       labels: ["UX", "Product"],
-      columnId: "progress",
+      columnId: "todo",
       comments: [
         {
           id: "comment-1",
@@ -63,7 +80,7 @@ export const initialData = {
     },
     {
       id: "task-2",
-      key: "TF-125",
+      key: "KA-125",
       title: "Tối ưu tốc độ tải trang dashboard",
       description: "Đo và giảm thời gian tải dashboard, ưu tiên phần thống kê tổng quan.",
       type: "bug",
@@ -71,12 +88,12 @@ export const initialData = {
       assignee: "Quang Huy",
       dueDate: "2026-06-02",
       labels: ["Frontend"],
-      columnId: "progress",
+      columnId: "todo",
       comments: [],
     },
     {
       id: "task-3",
-      key: "TF-126",
+      key: "KA-126",
       title: "Chuẩn hóa bộ component form",
       description: "Rà soát input, select và validation message để thống nhất trải nghiệm trên toàn hệ thống.",
       type: "task",
@@ -89,7 +106,7 @@ export const initialData = {
     },
     {
       id: "task-4",
-      key: "TF-127",
+      key: "KA-127",
       title: "Viết tài liệu API cho module notification",
       description: "Cập nhật tài liệu tích hợp notification cho các nhóm frontend.",
       type: "task",
@@ -97,12 +114,12 @@ export const initialData = {
       assignee: "Đức Long",
       dueDate: "2026-06-12",
       labels: ["Docs"],
-      columnId: "backlog",
+      columnId: "todo",
       comments: [],
     },
     {
       id: "task-5",
-      key: "TF-128",
+      key: "KA-128",
       title: "Review checklist phát hành phiên bản 2.4",
       description: "Kiểm tra checklist release và xác nhận owner cho từng hạng mục.",
       type: "story",
@@ -110,12 +127,12 @@ export const initialData = {
       assignee: "Thu Hà",
       dueDate: "2026-06-01",
       labels: ["Release"],
-      columnId: "review",
+      columnId: "todo",
       comments: [],
     },
     {
       id: "task-6",
-      key: "TF-129",
+      key: "KA-129",
       title: "Cập nhật thông báo lỗi đăng nhập",
       description: "Thay nội dung lỗi chung bằng thông báo cụ thể theo từng tình huống.",
       type: "bug",
@@ -128,7 +145,7 @@ export const initialData = {
     },
     {
       id: "task-7",
-      key: "TF-130",
+      key: "KA-130",
       title: "Bổ sung tracking cho trang thanh toán",
       description: "Bổ sung event analytics cho các bước chính của luồng thanh toán.",
       type: "task",

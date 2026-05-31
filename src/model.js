@@ -1,4 +1,4 @@
-import { currentUser, defaultChemicalColor, defaultMembers, legacyDefaultMembers } from "./data";
+import { currentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, fixedColumns, legacyDefaultMembers } from "./data";
 import { sanitizeRichText } from "./richText";
 
 function createChemicalId(name, chemicals) {
@@ -115,11 +115,14 @@ export function normalizeData(savedData) {
     if (!name) return "";
 
     const existing = labels.find(
-      (label) => label.toLocaleLowerCase("vi") === name.toLocaleLowerCase("vi"),
+      (label) => label.name.toLocaleLowerCase("vi") === name.toLocaleLowerCase("vi"),
     );
-    if (existing) return existing;
+    if (existing) return existing.name;
 
-    labels.push(name);
+    labels.push({
+      name,
+      color: (typeof value === "object" && value.color) || defaultLabelColor,
+    });
     return name;
   }
 
@@ -141,9 +144,22 @@ export function normalizeData(savedData) {
     return [...new Set(values.map(registerLabel).filter(Boolean))];
   }
 
+  const legacyColumnIds = new Set(["backlog", "progress", "review"]);
+  const customColumns = (savedData.columns || []).filter(
+    (column) =>
+      column?.id &&
+      column.title?.trim() &&
+      !fixedColumns.some((fixedColumn) => fixedColumn.id === column.id) &&
+      !legacyColumnIds.has(column.id),
+  );
+  const columns = [fixedColumns[0], ...customColumns, fixedColumns[1]];
+  const columnIds = new Set(columns.map((column) => column.id));
+
   const tasks = (savedData.tasks || []).map((task) => ({
     ...task,
+    key: task.key?.replace(/^TF-/, "KA-"),
     assignee: uniqueMembers.includes(task.assignee) ? task.assignee : currentUser.name,
+    columnId: columnIds.has(task.columnId) ? task.columnId : "todo",
     companyId: registerCompany(task.companyId || task.company),
     chemicals: normalizeTaskChemicals(task),
     labels: normalizeTaskLabels(task),
@@ -157,6 +173,7 @@ export function normalizeData(savedData) {
     companies,
     chemicals,
     labels,
+    columns,
     tasks,
   };
 }

@@ -9,11 +9,13 @@ export default function BoardToolbar({
   selectedChemical,
   selectedCompany,
   selectedLabels,
+  selectedPriority,
   setIsLabelFilterOpen,
   setSearch,
   setSelectedChemical,
   setSelectedCompany,
   setSelectedLabels,
+  setSelectedPriority,
   setShowMyTasks,
   showMyTasks,
   toggleLabelFilter,
@@ -48,13 +50,14 @@ export default function BoardToolbar({
             {availableLabels.length > 0 ? (
               <div className="label-filter-options">
                 {availableLabels.map((label) => (
-                  <label key={label}>
+                  <label key={label.name}>
                     <input
-                      checked={selectedLabels.includes(label)}
-                      onChange={() => toggleLabelFilter(label)}
+                      checked={selectedLabels.includes(label.name)}
+                      onChange={() => toggleLabelFilter(label.name)}
                       type="checkbox"
                     />
-                    <span>{label}</span>
+                    <i className="label-color-dot" style={{ backgroundColor: label.color }} />
+                    <span>{label.name}</span>
                   </label>
                 ))}
               </div>
@@ -69,6 +72,16 @@ export default function BoardToolbar({
         <select value={selectedCompany} onChange={(event) => setSelectedCompany(event.target.value)}>
           <option value="">Tất cả công ty</option>
           {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+        </select>
+      </label>
+      <label className={`toolbar-select priority-filter-select ${selectedPriority ? "has-value" : ""}`}>
+        <span>Ưu tiên</span>
+        <select value={selectedPriority} onChange={(event) => setSelectedPriority(event.target.value)}>
+          <option value="">Tất cả mức</option>
+          <option value="low">Thấp</option>
+          <option value="medium">Trung bình</option>
+          <option value="high">Cao</option>
+          <option value="highest">Cao nhất</option>
         </select>
       </label>
       <label
@@ -94,7 +107,6 @@ export default function BoardToolbar({
       >
         Công việc của tôi
       </button>
-      <button className="toolbar-button">Nhóm: Không có<Icon name="down" size={14} /></button>
       <button className="toolbar-button icon-only"><Icon name="more" size={17} /></button>
     </section>
   );
