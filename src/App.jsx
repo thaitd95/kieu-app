@@ -4,6 +4,7 @@ import ChemicalManagement from "./components/ChemicalManagement";
 import ColumnModal from "./components/ColumnModal";
 import CompanyEditModal from "./components/CompanyEditModal";
 import CompanyManagement from "./components/CompanyManagement";
+import LabelManagement from "./components/LabelManagement";
 import { BoardHeader, Sidebar, Topbar } from "./components/Layout";
 import TaskBoard from "./components/TaskBoard";
 import TaskModal from "./components/TaskModal";
@@ -63,8 +64,8 @@ function App() {
   const members = data?.members || defaultMembers;
   const customMembers = members.filter((person) => person !== currentUser.name);
   const availableLabels = useMemo(
-    () => [...new Set((data?.tasks || []).flatMap((task) => task.labels))].sort((first, second) => first.localeCompare(second)),
-    [data?.tasks],
+    () => [...(data?.labels || [])].sort((first, second) => first.localeCompare(second)),
+    [data?.labels],
   );
   const filteredTasks = useMemo(() => {
     if (!data) return [];
@@ -112,7 +113,7 @@ function App() {
 
   function openTask(task) {
     setSelectedTaskId(task.id);
-    setTaskDraft({ ...task, labels: task.labels.join(", ") });
+    setTaskDraft({ ...task, labels: [...task.labels] });
     resetTaskInputs();
   }
 
@@ -129,7 +130,7 @@ function App() {
       priority: "medium",
       assignee: currentUser.name,
       dueDate: "",
-      labels: "",
+      labels: [],
       companyId: "",
       chemicals: [],
       columnId,
@@ -145,10 +146,7 @@ function App() {
       ...taskDraft,
       title: taskDraft.title.trim(),
       description: sanitizeRichText(taskDraft.description),
-      labels: taskDraft.labels
-        .split(",")
-        .map((label) => label.trim())
-        .filter(Boolean),
+      labels: [...new Set(taskDraft.labels.filter((label) => data.labels.includes(label)))],
     };
 
     updateData((current) => ({
@@ -343,6 +341,69 @@ function App() {
     if (editingCompanyDraft?.id === companyId) setEditingCompanyDraft(null);
   }
 
+  function addLabel(value) {
+    const label = value.trim();
+    if (!label) return false;
+
+    const duplicate = data.labels.find(
+      (item) => item.toLocaleLowerCase("vi") === label.toLocaleLowerCase("vi"),
+    );
+    if (duplicate) {
+      window.alert("Tên nhãn đã tồn tại trong hệ thống.");
+      return false;
+    }
+
+    updateData((current) => ({
+      ...current,
+      labels: [...current.labels, label],
+    }));
+    return true;
+  }
+
+  function renameLabel(currentLabel, value) {
+    const nextLabel = value.trim();
+    if (!nextLabel) return false;
+    if (nextLabel === currentLabel) return true;
+
+    const duplicate = data.labels.find(
+      (item) =>
+        item !== currentLabel &&
+        item.toLocaleLowerCase("vi") === nextLabel.toLocaleLowerCase("vi"),
+    );
+    if (duplicate) {
+      window.alert("Tên nhãn đã tồn tại trong hệ thống.");
+      return false;
+    }
+
+    updateData((current) => ({
+      ...current,
+      labels: current.labels.map((label) => (label === currentLabel ? nextLabel : label)),
+      tasks: current.tasks.map((task) => ({
+        ...task,
+        labels: task.labels.map((label) => (label === currentLabel ? nextLabel : label)),
+      })),
+    }));
+    setSelectedLabels((current) =>
+      current.map((label) => (label === currentLabel ? nextLabel : label)),
+    );
+    return true;
+  }
+
+  function deleteLabel(label) {
+    const isUsed = data.tasks.some((task) => task.labels.includes(label));
+    if (isUsed) {
+      window.alert("Không thể xóa nhãn đang được sử dụng trong công việc.");
+      return;
+    }
+    if (!window.confirm(`Xóa nhãn ${label}?`)) return;
+
+    updateData((current) => ({
+      ...current,
+      labels: current.labels.filter((item) => item !== label),
+    }));
+    setSelectedLabels((current) => current.filter((item) => item !== label));
+  }
+
   function toggleLabelFilter(label) {
     setSelectedLabels((current) =>
       current.includes(label) ? current.filter((item) => item !== label) : [...current, label],
@@ -427,11 +488,19 @@ function App() {
             setNewChemicalName={setNewChemicalName}
             tasks={data.tasks}
           />
-        ) : (
+        ) : activeView === "companies" ? (
           <CompanyManagement
             companies={data.companies}
             deleteCompany={deleteCompany}
             setEditingCompanyDraft={setEditingCompanyDraft}
+            tasks={data.tasks}
+          />
+        ) : (
+          <LabelManagement
+            addLabel={addLabel}
+            deleteLabel={deleteLabel}
+            labels={data.labels}
+            renameLabel={renameLabel}
             tasks={data.tasks}
           />
         )}

@@ -53,6 +53,7 @@ export function normalizeData(savedData) {
   const uniqueMembers = [...new Set(members)];
   const companies = [];
   const chemicals = [];
+  const labels = [];
 
   function registerCompany(value) {
     if (!value) return "";
@@ -109,6 +110,21 @@ export function normalizeData(savedData) {
 
   (savedData.chemicals || []).forEach(registerChemical);
 
+  function registerLabel(value) {
+    const name = (typeof value === "string" ? value : value?.name)?.trim();
+    if (!name) return "";
+
+    const existing = labels.find(
+      (label) => label.toLocaleLowerCase("vi") === name.toLocaleLowerCase("vi"),
+    );
+    if (existing) return existing;
+
+    labels.push(name);
+    return name;
+  }
+
+  (savedData.labels || []).forEach(registerLabel);
+
   function normalizeTaskChemicals(task) {
     const values = Array.isArray(task.chemicals)
       ? task.chemicals
@@ -117,18 +133,30 @@ export function normalizeData(savedData) {
     return [...new Set(values.map(registerChemical).filter(Boolean))];
   }
 
+  function normalizeTaskLabels(task) {
+    const values = Array.isArray(task.labels)
+      ? task.labels
+      : String(task.labels || "").split(",");
+
+    return [...new Set(values.map(registerLabel).filter(Boolean))];
+  }
+
+  const tasks = (savedData.tasks || []).map((task) => ({
+    ...task,
+    assignee: uniqueMembers.includes(task.assignee) ? task.assignee : currentUser.name,
+    companyId: registerCompany(task.companyId || task.company),
+    chemicals: normalizeTaskChemicals(task),
+    labels: normalizeTaskLabels(task),
+    description: sanitizeRichText(task.description),
+  }));
+
   return {
     ...savedData,
     memberListVersion: 2,
     members: uniqueMembers,
     companies,
     chemicals,
-    tasks: savedData.tasks.map((task) => ({
-      ...task,
-      assignee: uniqueMembers.includes(task.assignee) ? task.assignee : currentUser.name,
-      companyId: registerCompany(task.companyId || task.company),
-      chemicals: normalizeTaskChemicals(task),
-      description: sanitizeRichText(task.description),
-    })),
+    labels,
+    tasks,
   };
 }

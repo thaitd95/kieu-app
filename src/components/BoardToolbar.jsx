@@ -18,6 +18,8 @@ export default function BoardToolbar({
   showMyTasks,
   toggleLabelFilter,
 }) {
+  const selectedChemicalItem = chemicals.find((chemical) => chemical.id === selectedChemical);
+
   return (
     <section className="toolbar">
       <div className="board-search">
@@ -69,11 +71,19 @@ export default function BoardToolbar({
           {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
         </select>
       </label>
-      <label className="toolbar-select">
+      <label
+        className={`toolbar-select chemical-filter-select ${selectedChemicalItem ? "has-value" : ""}`}
+        style={{ "--selected-chemical-color": selectedChemicalItem?.color || "#44546f" }}
+      >
         <span>Hóa chất</span>
+        {selectedChemicalItem && <i className="toolbar-chemical-dot" />}
         <select value={selectedChemical} onChange={(event) => setSelectedChemical(event.target.value)}>
           <option value="">Tất cả hóa chất</option>
-          {chemicals.map((chemical) => <option key={chemical.id} value={chemical.id}>{chemical.name}</option>)}
+          {chemicals.map((chemical) => (
+            <option key={chemical.id} style={{ color: chemical.color }} value={chemical.id}>
+              {chemical.name}
+            </option>
+          ))}
         </select>
       </label>
       <button

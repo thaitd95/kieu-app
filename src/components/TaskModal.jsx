@@ -35,6 +35,39 @@ function ChemicalMultiSelect({ items, setTaskDraft, taskDraft }) {
   );
 }
 
+function LabelMultiSelect({ items, setTaskDraft, taskDraft }) {
+  function toggleLabel(label) {
+    setTaskDraft((current) => ({
+      ...current,
+      labels: current.labels.includes(label)
+        ? current.labels.filter((item) => item !== label)
+        : [...current.labels, label],
+    }));
+  }
+
+  return (
+    <div className="field">
+      <span>Nhãn <small>có thể chọn nhiều nhãn</small></span>
+      {items.length > 0 ? (
+        <div className="chemical-options label-options">
+          {items.map((label) => (
+            <label key={label}>
+              <input
+                checked={taskDraft.labels.includes(label)}
+                onChange={() => toggleLabel(label)}
+                type="checkbox"
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+      ) : (
+        <p className="catalog-empty">Chưa có nhãn trong hệ thống. Hãy tạo nhãn tại tab Nhãn.</p>
+      )}
+    </div>
+  );
+}
+
 export default function TaskModal({
   addAssignee,
   addComment,
@@ -199,10 +232,7 @@ export default function TaskModal({
               <span>Ngày hết hạn</span>
               <input type="date" value={taskDraft.dueDate} onChange={(event) => setTaskDraft({ ...taskDraft, dueDate: event.target.value })} />
             </label>
-            <label className="field">
-              <span>Nhãn <small>phân cách bằng dấu phẩy</small></span>
-              <input value={taskDraft.labels} onChange={(event) => setTaskDraft({ ...taskDraft, labels: event.target.value })} placeholder="UX, Frontend" />
-            </label>
+            <LabelMultiSelect items={data.labels} setTaskDraft={setTaskDraft} taskDraft={taskDraft} />
           </aside>
         </div>
         <footer className="task-modal-footer">

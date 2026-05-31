@@ -11,6 +11,8 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 1140px; min-height: 100vh; background: #fff; }
 button, input, textarea, select { font: inherit; }
+select { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+option { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 button { cursor: pointer; }
 
 .storage-state { display: grid; min-height: 100vh; place-items: center; color: #626f86; background: #f7f8f9; font-size: 13px; font-weight: 600; }
@@ -59,15 +61,19 @@ h1 { margin: 0; color: #172b4d; font: 800 25px "Manrope", sans-serif; letter-spa
 .secondary-button { color: #344563; background: #f1f2f4; }
 .secondary-button:hover { background: #e7e9ed; }
 
-.toolbar { display: flex; align-items: center; gap: 8px; margin: 0 34px 19px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 34px 19px; }
 .board-search { width: 226px; height: 34px; padding: 0 9px; }
 .toolbar-button { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; color: #44546f; border: 0; border-radius: 4px; background: transparent; font-size: 12px; font-weight: 500; }
 .toolbar-button:hover { background: #f1f2f4; }
 .toolbar-button.active { color: #0c66e4; background: #e9f2ff; }
 .toolbar-button.icon-only { width: 32px; justify-content: center; padding: 0; }
-.toolbar-select { display: flex; align-items: center; gap: 5px; height: 32px; padding: 0 7px; border: 1px solid #dfe1e6; border-radius: 4px; background: white; }
+.toolbar-select { display: flex; min-width: 0; align-items: center; gap: 5px; height: 32px; padding: 0 7px; border: 1px solid #dfe1e6; border-radius: 4px; background: white; }
 .toolbar-select span { color: #7a869a; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-.toolbar-select select { max-width: 95px; color: #44546f; border: 0; outline: 0; background: transparent; font-size: 11px; font-weight: 600; }
+.toolbar-select select { min-width: 0; max-width: 95px; overflow: hidden; color: #44546f; border: 0; outline: 0; background: transparent; font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.chemical-filter-select { width: 205px; }
+.chemical-filter-select.has-value { border-color: color-mix(in srgb, var(--selected-chemical-color) 45%, white); background: color-mix(in srgb, var(--selected-chemical-color) 8%, white); }
+.chemical-filter-select select { flex: 1; max-width: none; color: var(--selected-chemical-color); }
+.toolbar-chemical-dot { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--selected-chemical-color); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 10%); }
 .label-filter { position: relative; }
 .filter-count { display: grid; min-width: 17px; height: 17px; place-items: center; padding: 0 4px; border-radius: 9px; color: white; background: #0c66e4; font-size: 10px; font-weight: 700; }
 .label-filter-menu { position: absolute; z-index: 5; top: 38px; left: 0; width: 220px; padding: 9px; border: 1px solid #dfe1e6; border-radius: 5px; background: white; box-shadow: 0 5px 16px rgba(9,30,66,.16); }
@@ -75,6 +81,7 @@ h1 { margin: 0; color: #172b4d; font: 800 25px "Manrope", sans-serif; letter-spa
 .label-filter-header button { padding: 0; color: #0c66e4; border: 0; background: transparent; font-size: 10px; font-weight: 600; }
 .label-filter-options { display: flex; flex-direction: column; gap: 2px; max-height: 230px; overflow-y: auto; }
 .label-filter-options label { display: flex; align-items: center; gap: 7px; padding: 6px 4px; border-radius: 3px; color: #44546f; cursor: pointer; font-size: 11px; }
+.label-filter-options span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .label-filter-options label:hover { background: #f1f2f4; }
 .label-filter-options input { width: 14px; height: 14px; margin: 0; accent-color: #0c66e4; }
 .label-filter-empty { margin: 3px; color: #7a869a; font-size: 11px; }
@@ -112,6 +119,13 @@ h1 { margin: 0; color: #172b4d; font: 800 25px "Manrope", sans-serif; letter-spa
 .company-system-footer div { display: flex; gap: 3px; }
 .company-edit-button { display: grid; width: 28px; height: 28px; place-items: center; color: #0c66e4; border: 0; border-radius: 4px; background: transparent; }
 .company-edit-button:hover { background: #e9f2ff; }
+.company-edit-button:disabled { cursor: default; opacity: .5; }
+.label-system-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 9px; }
+.label-system-item { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 9px; align-items: center; padding: 11px; border: 1px solid #ebecf0; border-radius: 5px; background: #fafbfc; }
+.label-system-item strong { min-width: 0; overflow: hidden; color: #344563; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.label-system-item > span { min-width: 0; overflow: hidden; color: #7a869a; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.label-system-item input { min-width: 0; height: 29px; padding: 0 7px; color: #344563; border: 1px solid #85b8ff; border-radius: 4px; outline: 0; background: white; font-size: 12px; }
+.label-system-actions { display: flex; grid-row: 1 / span 2; grid-column: 2; gap: 2px; }
 
 .board { display: flex; align-items: flex-start; gap: 12px; height: calc(100vh - 198px); padding: 0 34px 20px; overflow-x: auto; }
 .board-column { width: 252px; min-width: 252px; min-height: 130px; padding: 0 8px 9px; border-radius: 6px; background: #f4f5f7; transition: background .18s, box-shadow .18s; }
@@ -223,6 +237,7 @@ h1 { margin: 0; color: #172b4d; font: 800 25px "Manrope", sans-serif; letter-spa
 .add-catalog-item button:disabled { cursor: default; opacity: .5; }
 .chemical-options { display: flex; flex-direction: column; gap: 2px; max-height: 128px; padding: 5px; border: 1px solid #dfe1e6; border-radius: 4px; background: white; overflow-y: auto; }
 .chemical-options label { display: flex; align-items: center; gap: 7px; padding: 5px 4px; border-radius: 3px; color: #44546f; cursor: pointer; font-size: 11px; }
+.chemical-options span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chemical-options label:hover { background: #f1f2f4; }
 .chemical-options input { width: 14px; height: 14px; margin: 0; accent-color: #0c66e4; }
 .chemical-color-dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(9,30,66,.12); }

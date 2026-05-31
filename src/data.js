@@ -31,6 +31,7 @@ export const defaultChemicalColor = chemicalColors[0];
 export const initialData = {
   companies: [],
   chemicals: [],
+  labels: [],
   columns: [
     { id: "backlog", title: "Backlog", color: "#8590a2" },
     { id: "todo", title: "To do", color: "#0c66e4" },
