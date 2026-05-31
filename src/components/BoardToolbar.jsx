@@ -1,4 +1,6 @@
+import { useEffect, useRef } from "react";
 import { Icon } from "./Common";
+import SelectDropdown from "./SelectDropdown";
 
 export default function BoardToolbar({
   availableLabels,
@@ -20,7 +22,21 @@ export default function BoardToolbar({
   showMyTasks,
   toggleLabelFilter,
 }) {
+  const labelFilterRef = useRef(null);
   const selectedChemicalItem = chemicals.find((chemical) => chemical.id === selectedChemical);
+
+  useEffect(() => {
+    if (!isLabelFilterOpen) return undefined;
+
+    function handleOutsideClick(event) {
+      if (!labelFilterRef.current?.contains(event.target)) {
+        setIsLabelFilterOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handleOutsideClick);
+    return () => document.removeEventListener("pointerdown", handleOutsideClick);
+  }, [isLabelFilterOpen, setIsLabelFilterOpen]);
 
   return (
     <section className="toolbar">
@@ -28,7 +44,7 @@ export default function BoardToolbar({
         <Icon name="search" size={17} />
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm công việc..." />
       </div>
-      <div className="label-filter">
+      <div className="label-filter" ref={labelFilterRef}>
         <button
           aria-expanded={isLabelFilterOpen}
           className={`toolbar-button ${selectedLabels.length > 0 ? "active" : ""}`}
@@ -67,38 +83,52 @@ export default function BoardToolbar({
           </div>
         )}
       </div>
-      <label className="toolbar-select">
+      <div className="toolbar-select">
         <span>Công ty</span>
-        <select value={selectedCompany} onChange={(event) => setSelectedCompany(event.target.value)}>
-          <option value="">Tất cả công ty</option>
-          {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-        </select>
-      </label>
-      <label className={`toolbar-select priority-filter-select ${selectedPriority ? "has-value" : ""}`}>
+        <SelectDropdown
+          ariaLabel="Lọc theo công ty"
+          onChange={setSelectedCompany}
+          options={[
+            { value: "", label: "Tất cả công ty" },
+            ...companies.map((company) => ({ value: company.id, label: company.name })),
+          ]}
+          value={selectedCompany}
+        />
+      </div>
+      <div className={`toolbar-select priority-filter-select ${selectedPriority ? "has-value" : ""}`}>
         <span>Ưu tiên</span>
-        <select value={selectedPriority} onChange={(event) => setSelectedPriority(event.target.value)}>
-          <option value="">Tất cả mức</option>
-          <option value="low">Thấp</option>
-          <option value="medium">Trung bình</option>
-          <option value="high">Cao</option>
-          <option value="highest">Cao nhất</option>
-        </select>
-      </label>
-      <label
+        <SelectDropdown
+          ariaLabel="Lọc theo độ ưu tiên"
+          onChange={setSelectedPriority}
+          options={[
+            { value: "", label: "Tất cả mức" },
+            { value: "low", label: "Thấp", color: "#0c66e4" },
+            { value: "medium", label: "Trung bình", color: "#7f5f01" },
+            { value: "high", label: "Cao", color: "#e06c00" },
+            { value: "highest", label: "Cao nhất", color: "#c9372c" },
+          ]}
+          value={selectedPriority}
+        />
+      </div>
+      <div
         className={`toolbar-select chemical-filter-select ${selectedChemicalItem ? "has-value" : ""}`}
         style={{ "--selected-chemical-color": selectedChemicalItem?.color || "#44546f" }}
       >
         <span>Hóa chất</span>
-        {selectedChemicalItem && <i className="toolbar-chemical-dot" />}
-        <select value={selectedChemical} onChange={(event) => setSelectedChemical(event.target.value)}>
-          <option value="">Tất cả hóa chất</option>
-          {chemicals.map((chemical) => (
-            <option key={chemical.id} style={{ color: chemical.color }} value={chemical.id}>
-              {chemical.name}
-            </option>
-          ))}
-        </select>
-      </label>
+        <SelectDropdown
+          ariaLabel="Lọc theo hóa chất"
+          onChange={setSelectedChemical}
+          options={[
+            { value: "", label: "Tất cả hóa chất" },
+            ...chemicals.map((chemical) => ({
+              value: chemical.id,
+              label: chemical.name,
+              color: chemical.color,
+            })),
+          ]}
+          value={selectedChemical}
+        />
+      </div>
       <button
         aria-pressed={showMyTasks}
         className={`toolbar-button ${showMyTasks ? "active" : ""}`}

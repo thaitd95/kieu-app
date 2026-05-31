@@ -1,5 +1,6 @@
 import { Avatar, Icon, TypeIcon } from "./Common";
 import { RichTextEditor } from "./RichText";
+import SelectDropdown from "./SelectDropdown";
 
 function ChemicalMultiSelect({ items, setTaskDraft, taskDraft }) {
   function toggleChemical(chemicalId) {
@@ -149,33 +150,46 @@ export default function TaskModal({
             </div>
           </div>
           <aside className="task-details">
-            <label className="field">
+            <div className="field">
               <span>Trạng thái</span>
-              <div
+              <SelectDropdown
+                ariaLabel="Trạng thái công việc"
                 className="status-select"
+                onChange={(columnId) => setTaskDraft({ ...taskDraft, columnId })}
+                options={data.columns.map((column) => ({
+                  value: column.id,
+                  label: column.title,
+                  color: column.color,
+                }))}
                 style={{ "--status-color": selectedTaskColumn?.color || columnColors[0] }}
-              >
-                <span className="status-dot" />
-                <select value={taskDraft.columnId} onChange={(event) => setTaskDraft({ ...taskDraft, columnId: event.target.value })}>
-                  {data.columns.map((column) => <option value={column.id} key={column.id}>{column.title}</option>)}
-                </select>
-              </div>
-            </label>
+                value={taskDraft.columnId}
+              />
+            </div>
             <h3>Chi tiết</h3>
-            <label className="field">
+            <div className="field">
               <span>Loại công việc</span>
-              <select value={taskDraft.type} onChange={(event) => setTaskDraft({ ...taskDraft, type: event.target.value })}>
-                <option value="task">Task</option><option value="story">Story</option><option value="bug">Bug</option>
-              </select>
-            </label>
+              <SelectDropdown
+                ariaLabel="Loại công việc"
+                onChange={(type) => setTaskDraft({ ...taskDraft, type })}
+                options={[
+                  { value: "task", label: "Task", color: "#0c66e4" },
+                  { value: "story", label: "Story", color: "#22a06b" },
+                  { value: "bug", label: "Bug", color: "#c9372c" },
+                ]}
+                value={taskDraft.type}
+              />
+            </div>
             <div className="field">
               <span>
                 Người phụ trách
                 {taskDraft.assignee === currentUser.name && <small className="personal-field-label">Việc của tôi</small>}
               </span>
-              <select value={taskDraft.assignee} onChange={(event) => setTaskDraft({ ...taskDraft, assignee: event.target.value })}>
-                {members.map((person) => <option key={person}>{person}</option>)}
-              </select>
+              <SelectDropdown
+                ariaLabel="Người phụ trách"
+                onChange={(assignee) => setTaskDraft({ ...taskDraft, assignee })}
+                options={members.map((person) => ({ value: person, label: person }))}
+                value={taskDraft.assignee}
+              />
               <div className="add-assignee">
                 <input
                   onChange={(event) => setNewAssigneeName(event.target.value)}
@@ -210,25 +224,38 @@ export default function TaskModal({
                 </div>
               )}
             </div>
-            <label className="field">
+            <div className="field">
               <span>Công ty</span>
-              <select value={taskDraft.companyId} onChange={(event) => setTaskDraft({ ...taskDraft, companyId: event.target.value })}>
-                <option value="">Chưa chọn công ty</option>
-                {data.companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-              </select>
+              <SelectDropdown
+                ariaLabel="Công ty"
+                onChange={(companyId) => setTaskDraft({ ...taskDraft, companyId })}
+                options={[
+                  { value: "", label: "Chưa chọn công ty" },
+                  ...data.companies.map((company) => ({ value: company.id, label: company.name })),
+                ]}
+                value={taskDraft.companyId}
+              />
               {data.companies.length === 0 && <small className="catalog-guidance">Hãy tạo công ty tại tab Công ty.</small>}
-            </label>
+            </div>
             <ChemicalMultiSelect
               items={data.chemicals}
               setTaskDraft={setTaskDraft}
               taskDraft={taskDraft}
             />
-            <label className="field">
+            <div className="field">
               <span>Độ ưu tiên</span>
-              <select value={taskDraft.priority} onChange={(event) => setTaskDraft({ ...taskDraft, priority: event.target.value })}>
-                <option value="highest">Cao nhất</option><option value="high">Cao</option><option value="medium">Trung bình</option><option value="low">Thấp</option>
-              </select>
-            </label>
+              <SelectDropdown
+                ariaLabel="Độ ưu tiên"
+                onChange={(priority) => setTaskDraft({ ...taskDraft, priority })}
+                options={[
+                  { value: "highest", label: "Cao nhất", color: "#c9372c" },
+                  { value: "high", label: "Cao", color: "#e06c00" },
+                  { value: "medium", label: "Trung bình", color: "#7f5f01" },
+                  { value: "low", label: "Thấp", color: "#0c66e4" },
+                ]}
+                value={taskDraft.priority}
+              />
+            </div>
             <label className="field">
               <span>Ngày hết hạn</span>
               <input type="date" value={taskDraft.dueDate} onChange={(event) => setTaskDraft({ ...taskDraft, dueDate: event.target.value })} />

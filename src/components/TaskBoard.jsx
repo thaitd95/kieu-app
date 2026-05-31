@@ -1,5 +1,6 @@
 import { Avatar, Icon, Priority, TypeIcon } from "./Common";
 import { priorityColors } from "../data";
+import SelectDropdown from "./SelectDropdown";
 
 function TaskCard({ assignTask, chemicals, companies, currentUser, deleteTask, draggedTaskId, labels, members, openTask, setDragTargetId, setDraggedTaskId, task }) {
   const company = companies.find((item) => item.id === task.companyId);
@@ -71,21 +72,20 @@ function TaskCard({ assignTask, chemicals, companies, currentUser, deleteTask, d
           return <span key={label} style={{ "--label-color": labelColor }}>{label}</span>;
         })}
       </div>
-      <label
+      <div
         className="quick-assignee"
         onClick={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <Avatar name={task.assignee} size="tiny" index={members.indexOf(task.assignee)} />
-        <select
-          aria-label={`Người nhận ${task.key}`}
-          draggable="false"
-          onChange={(event) => assignTask(task.id, event.target.value)}
+        <SelectDropdown
+          ariaLabel={`Người nhận ${task.key}`}
+          className="quick-assignee-select"
+          onChange={(assignee) => assignTask(task.id, assignee)}
+          options={members.map((person) => ({ value: person, label: person }))}
           value={task.assignee}
-        >
-          {members.map((person) => <option key={person}>{person}</option>)}
-        </select>
-      </label>
+        />
+      </div>
       <div className="task-card-footer">
         <span className="task-key">{task.key}</span>
         <div className="task-meta">
