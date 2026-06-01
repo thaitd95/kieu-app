@@ -284,6 +284,25 @@ h1 { margin: 0; color: var(--text); font: 800 25px "Manrope", sans-serif; letter
 .rich-text-input:empty::before { color: var(--text-faint); content: attr(data-placeholder); pointer-events: none; }
 .rich-text-content p, .rich-text-content div { margin: 0 0 4px; }
 .rich-text-content p:last-child, .rich-text-content div:last-child { margin-bottom: 0; }
+.objective-checklist { margin-top: 24px; }
+.objective-checklist-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.objective-checklist-header .section-title { margin: 0; }
+.objective-checklist-header span { color: var(--text-subtle); font-size: 10px; font-weight: 700; }
+.objective-list { display: flex; flex-direction: column; gap: 5px; }
+.objective-item { display: flex; align-items: center; gap: 7px; padding: 5px 6px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--surface-subtle); }
+.objective-item > input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var(--primary); cursor: pointer; }
+.objective-item > input[type="text"] { min-width: 0; height: 26px; flex: 1; padding: 0 5px; color: var(--text-secondary); border: 1px solid transparent; border-radius: 3px; outline: 0; background: transparent; font-size: 12px; }
+.objective-item > input[type="text"]:focus { border-color: var(--border-focus); background: var(--surface); }
+.objective-item.completed > input[type="text"] { color: var(--text-faint); text-decoration: line-through; }
+.objective-item button { display: grid; width: 25px; height: 25px; flex: 0 0 auto; place-items: center; padding: 0; color: var(--text-subtle); border: 0; border-radius: 3px; background: transparent; }
+.objective-item button:hover { color: var(--danger); background: var(--surface-danger); }
+.objective-empty { margin: 0; padding: 9px; color: var(--text-subtle); border: 1px dashed var(--border); border-radius: 4px; font-size: 11px; }
+.objective-add { display: flex; gap: 6px; margin-top: 7px; }
+.objective-add input { min-width: 0; height: 33px; flex: 1; padding: 0 8px; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; outline: 0; background: var(--surface); font-size: 12px; }
+.objective-add input:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.objective-add button { display: flex; align-items: center; gap: 3px; padding: 0 9px; color: var(--primary); border: 0; border-radius: 4px; background: var(--surface-accent); font-size: 11px; font-weight: 700; }
+.objective-add button:hover { background: var(--surface-accent-hover); }
+.objective-add button:disabled { cursor: default; opacity: .5; }
 .task-details { padding: 22px 20px; border-left: 1px solid var(--border-subtle); background: var(--surface-subtle); }
 .task-details h3 { margin: 24px 0 13px; color: var(--text-secondary); font-size: 12px; }
 .field { display: block; margin-bottom: 15px; }

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Avatar, Icon, TypeIcon } from "./Common";
 import { RichTextEditor } from "./RichText";
 import SelectDropdown from "./SelectDropdown";
@@ -70,6 +71,105 @@ function LabelMultiSelect({ items, setTaskDraft, taskDraft }) {
   );
 }
 
+function ObjectiveChecklist({ setTaskDraft, taskDraft }) {
+  const [newObjectiveText, setNewObjectiveText] = useState("");
+  const completedCount = taskDraft.objectives.filter((objective) => objective.completed).length;
+
+  useEffect(() => {
+    setNewObjectiveText("");
+  }, [taskDraft.id]);
+
+  function addObjective() {
+    const text = newObjectiveText.trim();
+    if (!text) return;
+
+    setTaskDraft((current) => ({
+      ...current,
+      objectives: [
+        ...current.objectives,
+        {
+          id: `${current.id}-objective-${Date.now()}-${current.objectives.length + 1}`,
+          text,
+          completed: false,
+        },
+      ],
+    }));
+    setNewObjectiveText("");
+  }
+
+  function updateObjective(objectiveId, changes) {
+    setTaskDraft((current) => ({
+      ...current,
+      objectives: current.objectives.map((objective) =>
+        objective.id === objectiveId ? { ...objective, ...changes } : objective,
+      ),
+    }));
+  }
+
+  function deleteObjective(objectiveId) {
+    setTaskDraft((current) => ({
+      ...current,
+      objectives: current.objectives.filter((objective) => objective.id !== objectiveId),
+    }));
+  }
+
+  return (
+    <section className="objective-checklist">
+      <div className="objective-checklist-header">
+        <h3 className="section-title">Chỉ tiêu công việc</h3>
+        <span>{completedCount}/{taskDraft.objectives.length} hoàn thành</span>
+      </div>
+      {taskDraft.objectives.length > 0 ? (
+        <div className="objective-list">
+          {taskDraft.objectives.map((objective) => (
+            <div className={`objective-item ${objective.completed ? "completed" : ""}`} key={objective.id}>
+              <input
+                aria-label={`Đánh dấu chỉ tiêu ${objective.text}`}
+                checked={objective.completed}
+                onChange={(event) => updateObjective(objective.id, { completed: event.target.checked })}
+                type="checkbox"
+              />
+              <input
+                aria-label="Nội dung chỉ tiêu"
+                onChange={(event) => updateObjective(objective.id, { text: event.target.value })}
+                type="text"
+                value={objective.text}
+              />
+              <button
+                aria-label={`Xóa chỉ tiêu ${objective.text}`}
+                onClick={() => deleteObjective(objective.id)}
+                title="Xóa chỉ tiêu"
+                type="button"
+              >
+                <Icon name="trash" size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="objective-empty">Chưa có chỉ tiêu nào cho công việc này.</p>
+      )}
+      <div className="objective-add">
+        <input
+          onChange={(event) => setNewObjectiveText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              addObjective();
+            }
+          }}
+          placeholder="Thêm chỉ tiêu mới"
+          type="text"
+          value={newObjectiveText}
+        />
+        <button disabled={!newObjectiveText.trim()} onClick={addObjective} type="button">
+          <Icon name="plus" size={14} />Thêm
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export default function TaskModal({
   addAssignee,
   addComment,
@@ -122,6 +222,7 @@ export default function TaskModal({
               placeholder="Thêm mô tả chi tiết..."
               value={taskDraft.description}
             />
+            <ObjectiveChecklist setTaskDraft={setTaskDraft} taskDraft={taskDraft} />
             <div className="activity-header">
               <h3 className="section-title">Hoạt động</h3>
               <button className="sort-button">Mới nhất <Icon name="down" size={13} /></button>

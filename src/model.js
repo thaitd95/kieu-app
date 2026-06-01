@@ -144,6 +144,18 @@ export function normalizeData(savedData) {
     return [...new Set(values.map(registerLabel).filter(Boolean))];
   }
 
+  function normalizeTaskObjectives(task) {
+    if (!Array.isArray(task.objectives)) return [];
+
+    return task.objectives
+      .map((objective, index) => ({
+        id: objective?.id || `${task.id || "task"}-objective-${index + 1}`,
+        text: String(objective?.text || "").trim(),
+        completed: Boolean(objective?.completed),
+      }))
+      .filter((objective) => objective.text);
+  }
+
   const legacyColumnIds = new Set(["backlog", "progress", "review"]);
   const customColumns = (savedData.columns || []).filter(
     (column) =>
@@ -163,6 +175,7 @@ export function normalizeData(savedData) {
     companyId: registerCompany(task.companyId || task.company),
     chemicals: normalizeTaskChemicals(task),
     labels: normalizeTaskLabels(task),
+    objectives: normalizeTaskObjectives(task),
     description: sanitizeRichText(task.description),
   }));
 

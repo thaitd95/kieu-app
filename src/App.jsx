@@ -121,7 +121,7 @@ function App() {
 
   function openTask(task) {
     setSelectedTaskId(task.id);
-    setTaskDraft({ ...task, labels: [...task.labels] });
+    setTaskDraft({ ...task, labels: [...task.labels], objectives: [...task.objectives] });
     resetTaskInputs();
   }
 
@@ -139,6 +139,7 @@ function App() {
       assignee: currentUser.name,
       dueDate: "",
       labels: [],
+      objectives: [],
       companyId: "",
       chemicals: [],
       columnId: "todo",
@@ -155,6 +156,9 @@ function App() {
       title: taskDraft.title.trim(),
       description: sanitizeRichText(taskDraft.description),
       labels: [...new Set(taskDraft.labels.filter((label) => data.labels.some((item) => item.name === label)))],
+      objectives: taskDraft.objectives
+        .map((objective) => ({ ...objective, text: objective.text.trim() }))
+        .filter((objective) => objective.text),
     };
 
     updateData((current) => ({
