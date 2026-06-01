@@ -98,6 +98,10 @@ button { cursor: pointer; }
 .breadcrumbs { display: flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 12px; }
 .breadcrumbs strong { color: var(--text-secondary); font-weight: 600; }
 .topbar-actions { display: flex; align-items: center; gap: 9px; }
+.topbar-data-actions { display: flex; align-items: center; gap: 3px; }
+.topbar-data-button { display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 7px; color: var(--text-secondary); border: 0; border-radius: 4px; background: transparent; cursor: pointer; font-size: 10px; font-weight: 700; }
+.topbar-data-button:hover, .topbar-data-button:focus-visible, .topbar-data-button:focus-within { color: var(--primary); outline: 0; background: var(--surface-accent); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; margin: -1px; clip: rect(0 0 0 0); overflow: hidden; white-space: nowrap; }
 .search-box, .board-search { display: flex; align-items: center; gap: 7px; border: 1px solid var(--border); border-radius: 5px; color: var(--text-muted); }
 .search-box { width: 200px; height: 34px; padding: 0 9px; }
 .search-box input, .board-search input { width: 100%; border: 0; outline: 0; color: var(--text); background: transparent; font-size: 12px; }

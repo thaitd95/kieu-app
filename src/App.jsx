@@ -10,6 +10,7 @@ import TaskBoard from "./components/TaskBoard";
 import TaskModal from "./components/TaskModal";
 import { chemicalColors, columnColors, currentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, initialData, labelColors } from "./data";
 import { loadInitialData, saveStoredData } from "./db";
+import { createSystemBackup, mergeSystemBackup } from "./dataTransfer";
 import { normalizeData } from "./model";
 import { sanitizeRichText, stripRichText } from "./richText";
 
@@ -458,11 +459,37 @@ function App() {
     setCommentText("");
   }
 
+  function exportData() {
+    const backup = createSystemBackup(data);
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `kieu-assistant-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  async function importData(file) {
+    try {
+      const backup = JSON.parse(await file.text());
+      const result = mergeSystemBackup(data, backup);
+      const summary = result.summary;
+
+      setData(result.data);
+      window.alert(
+        `Đã nhập dữ liệu mới: ${summary.tasks} công việc, ${summary.companies} công ty, ${summary.chemicals} hóa chất, ${summary.labels} nhãn, ${summary.columns} cột và ${summary.members} người phụ trách. Bỏ qua ${summary.skippedTasks} công việc đã tồn tại.`,
+      );
+    } catch (error) {
+      window.alert(`Không thể nhập dữ liệu. ${error.message}`);
+    }
+  }
+
   return (
     <div className="app-shell">
       <Sidebar activeView={activeView} currentUser={currentUser} members={members} setActiveView={setActiveView} setTheme={setTheme} theme={theme} />
       <main className="main-content">
-        <Topbar currentUser={currentUser} members={members} search={search} setSearch={setSearch} />
+        <Topbar currentUser={currentUser} members={members} onExportData={exportData} onImportData={importData} search={search} setSearch={setSearch} />
         {activeView === "board" ? (
           <>
             <BoardHeader startNewTask={startNewTask} />
