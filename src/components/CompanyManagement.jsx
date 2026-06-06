@@ -12,8 +12,8 @@ export default function CompanyManagement({
       <header className="chemical-page-header">
         <div>
           <p className="eyebrow">DANH MỤC HỆ THỐNG</p>
-          <h1>Công ty</h1>
-          <p className="subtitle">Quản lý thông tin công ty cung cấp hóa chất dùng trong bảng công việc.</p>
+          <h1>Seller</h1>
+          <p className="subtitle">Quản lý thông tin Seller cung cấp hóa chất dùng trong bảng công việc.</p>
         </div>
       </header>
 
@@ -21,11 +21,11 @@ export default function CompanyManagement({
         <section className="chemical-list-panel">
           <div className="chemical-list-header">
             <div>
-              <h2>Danh sách công ty</h2>
-              <p>{companies.length} công ty trong hệ thống</p>
+              <h2>Danh sách Seller</h2>
+              <p>{companies.length} Seller trong hệ thống</p>
             </div>
             <button className="primary-button" onClick={() => setEditingCompanyDraft({ name: "", address: "", description: "" })} type="button">
-              <Icon name="plus" size={15} />Thêm công ty
+              <Icon name="plus" size={15} />Thêm Seller
             </button>
           </div>
           {companies.length > 0 ? (
@@ -52,7 +52,7 @@ export default function CompanyManagement({
                           className="chemical-delete-button"
                           disabled={taskCount > 0}
                           onClick={() => deleteCompany(company.id)}
-                          title={taskCount > 0 ? "Không thể xóa công ty đang được sử dụng" : `Xóa ${company.name}`}
+                          title={taskCount > 0 ? "Không thể xóa Seller đang được sử dụng" : `Xóa ${company.name}`}
                           type="button"
                         >
                           <Icon name="trash" size={14} />
@@ -66,8 +66,8 @@ export default function CompanyManagement({
           ) : (
             <div className="chemical-system-empty">
               <Icon name="building" size={28} />
-              <strong>Chưa có công ty</strong>
-              <span>Thêm công ty đầu tiên để sử dụng trong bảng công việc.</span>
+              <strong>Chưa có Seller</strong>
+              <span>Thêm Seller đầu tiên để sử dụng trong bảng công việc.</span>
             </div>
           )}
         </section>

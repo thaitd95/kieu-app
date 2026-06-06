@@ -10,7 +10,7 @@ export function Sidebar({ activeView, currentUser, members, setActiveView, setTh
       <nav className="sidebar-nav">
         <button className={`nav-item ${activeView === "board" ? "active" : ""}`} onClick={() => setActiveView("board")}><Icon name="board" />Bảng công việc</button>
         <button className={`nav-item ${activeView === "chemicals" ? "active" : ""}`} onClick={() => setActiveView("chemicals")}><Icon name="flask" />Hóa chất</button>
-        <button className={`nav-item ${activeView === "companies" ? "active" : ""}`} onClick={() => setActiveView("companies")}><Icon name="building" />Công ty</button>
+        <button className={`nav-item ${activeView === "companies" ? "active" : ""}`} onClick={() => setActiveView("companies")}><Icon name="building" />Seller</button>
         <button className={`nav-item ${activeView === "labels" ? "active" : ""}`} onClick={() => setActiveView("labels")}><Icon name="tag" />Nhãn</button>
         <a className="nav-item" href="#"><Icon name="timeline" />Lộ trình</a>
         <a className="nav-item" href="#"><Icon name="report" />Báo cáo</a>
@@ -79,7 +79,7 @@ export function BoardHeader({ startNewTask }) {
       <div>
         <p className="eyebrow">KIEUASSISTANT</p>
         <h1>Bảng công việc</h1>
-        <p className="subtitle">Theo dõi tiến độ nhập hóa chất từ các công ty.</p>
+        <p className="subtitle">Theo dõi tiến độ nhập hóa chất từ các Seller.</p>
       </div>
       <button className="primary-button" onClick={() => startNewTask()}><Icon name="plus" size={17} />Tạo công việc</button>
     </section>

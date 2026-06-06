@@ -1,4 +1,5 @@
 import { normalizeData } from "./model";
+import { workflowColumns } from "./workflow";
 
 export const BACKUP_FORMAT = "kieu-assistant-backup";
 export const BACKUP_VERSION = 1;
@@ -71,32 +72,10 @@ function mergeLabels(currentLabels, importedLabels) {
 }
 
 function mergeColumns(currentColumns, importedColumns) {
-  const columns = [...currentColumns];
-  const reservedIds = new Set(columns.map((column) => column.id));
-  const idMap = new Map([
-    ["todo", "todo"],
-    ["done", "done"],
-  ]);
-  let addedCount = 0;
+  const idMap = new Map(workflowColumns.map((column) => [column.id, column.id]));
+  importedColumns.forEach((column) => idMap.set(column.id, column.id));
 
-  importedColumns.forEach((importedColumn) => {
-    if (["todo", "done"].includes(importedColumn.id)) return;
-
-    const matchedColumn = columns.find(
-      (column) => normalizeName(column.title) === normalizeName(importedColumn.title),
-    );
-    if (matchedColumn) {
-      idMap.set(importedColumn.id, matchedColumn.id);
-      return;
-    }
-
-    const id = reserveUniqueId(importedColumn.id, "column", reservedIds);
-    columns.splice(columns.length - 1, 0, { ...importedColumn, id });
-    idMap.set(importedColumn.id, id);
-    addedCount += 1;
-  });
-
-  return { addedCount, columns, idMap };
+  return { addedCount: 0, columns: currentColumns, idMap };
 }
 
 function createTaskKey(tasks) {
@@ -163,7 +142,7 @@ export function mergeSystemBackup(currentData, backup) {
       labels: importedTask.labels
         .map((label) => labels.nameMap.get(label))
         .filter(Boolean),
-      columnId: columns.idMap.get(importedTask.columnId) || "todo",
+      columnId: columns.idMap.get(importedTask.columnId) || workflowColumns[0].id,
     });
     taskKeys.add(key);
     addedTaskCount += 1;

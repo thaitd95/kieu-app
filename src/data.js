@@ -1,3 +1,5 @@
+import { workflowColumns } from "./workflow";
+
 export const currentUser = { name: "Mỹ Kiều", role: "App Owner" };
 export const defaultMembers = [currentUser.name];
 export const legacyDefaultMembers = ["Minh Anh", "Quang Huy", "Bảo Ngọc", "Đức Long", "Thu Hà"];
@@ -46,10 +48,7 @@ export const priorityColors = {
   highest: "#c9372c",
 };
 
-export const fixedColumns = [
-  { id: "todo", title: "To do", color: "#0c66e4" },
-  { id: "done", title: "Done", color: "#1f845a" },
-];
+export const fixedColumns = workflowColumns;
 
 export const initialData = {
   companies: [],
@@ -68,7 +67,7 @@ export const initialData = {
       assignee: "Mỹ Kiều",
       dueDate: "2026-06-05",
       labels: ["UX", "Product"],
-      columnId: "todo",
+      columnId: "po",
       comments: [
         {
           id: "comment-1",
@@ -88,7 +87,7 @@ export const initialData = {
       assignee: "Quang Huy",
       dueDate: "2026-06-02",
       labels: ["Frontend"],
-      columnId: "todo",
+      columnId: "po",
       comments: [],
     },
     {
@@ -101,7 +100,7 @@ export const initialData = {
       assignee: "Bảo Ngọc",
       dueDate: "2026-06-10",
       labels: ["Design system"],
-      columnId: "todo",
+      columnId: "po",
       comments: [],
     },
     {
@@ -114,7 +113,7 @@ export const initialData = {
       assignee: "Đức Long",
       dueDate: "2026-06-12",
       labels: ["Docs"],
-      columnId: "todo",
+      columnId: "po",
       comments: [],
     },
     {
@@ -127,7 +126,7 @@ export const initialData = {
       assignee: "Thu Hà",
       dueDate: "2026-06-01",
       labels: ["Release"],
-      columnId: "todo",
+      columnId: "po",
       comments: [],
     },
     {
@@ -140,7 +139,7 @@ export const initialData = {
       assignee: "Mỹ Kiều",
       dueDate: "2026-05-30",
       labels: ["Auth"],
-      columnId: "done",
+      columnId: "completed",
       comments: [],
     },
     {
@@ -153,7 +152,7 @@ export const initialData = {
       assignee: "Quang Huy",
       dueDate: "2026-06-08",
       labels: ["Analytics"],
-      columnId: "todo",
+      columnId: "po",
       comments: [],
     },
   ],

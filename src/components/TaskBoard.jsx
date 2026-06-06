@@ -1,36 +1,18 @@
 import { useEffect, useState } from "react";
-import { Avatar, Icon, Priority, TypeIcon } from "./Common";
+import { Avatar, Icon, Priority } from "./Common";
 import { priorityColors } from "../data";
+import { getDeadlineInfo } from "../deadline";
 import SelectDropdown from "./SelectDropdown";
 
-const HOUR_IN_MS = 60 * 60 * 1000;
-
-function getDeadlineInfo(dueDate, now) {
-  if (!dueDate) return null;
-
-  const [year, month, day] = dueDate.split("-").map(Number);
-  const deadline = new Date(year, month - 1, day, 23, 59, 59, 999);
-
-  if (Number.isNaN(deadline.getTime())) return null;
-
-  const remainingHours = Math.ceil(Math.abs(deadline.getTime() - now) / HOUR_IN_MS);
-  const isOverdue = deadline.getTime() < now;
-
-  return {
-    isOverdue,
-    label: isOverdue ? `Quá hạn ${remainingHours} giờ` : `Còn ${remainingHours} giờ`,
-  };
-}
-
-function TaskCard({ assignTask, chemicals, companies, currentUser, deleteTask, draggedTaskId, labels, members, now, openTask, setDragTargetId, setDraggedTaskId, task }) {
+function TaskCard({ assignTask, chemicals, column, companies, currentUser, deleteTask, draggedTaskId, labels, members, now, openTask, setDragTargetId, setDraggedTaskId, task }) {
   const company = companies.find((item) => item.id === task.companyId);
-  const isDone = task.columnId === "done";
-  const taskColor = isDone ? "#1f845a" : priorityColors[task.priority];
-  const deadlineInfo = getDeadlineInfo(task.dueDate, now);
+  const taskColor = priorityColors[task.priority];
+  const columnDeadlineInfo = getDeadlineInfo(task.columnDueDates?.[task.columnId], now);
+  const taskDeadlineInfo = getDeadlineInfo(task.dueDate, now);
 
   return (
     <article
-      className={`task-card ${task.assignee === currentUser.name ? "task-card-personal" : ""} ${task.priority === "low" ? "task-card-low-priority" : ""} ${isDone ? "task-card-done" : ""} ${draggedTaskId === task.id ? "dragging" : ""}`}
+      className={`task-card ${task.assignee === currentUser.name ? "task-card-personal" : ""} ${task.priority === "low" ? "task-card-low-priority" : ""} ${draggedTaskId === task.id ? "dragging" : ""}`}
       draggable
       onClick={() => openTask(task)}
       onDragEnd={() => {
@@ -46,7 +28,6 @@ function TaskCard({ assignTask, chemicals, companies, currentUser, deleteTask, d
     >
       <div className="task-card-top">
         <div className="task-card-markers">
-          <TypeIcon type={task.type} />
           {task.assignee === currentUser.name && <span className="my-task-badge">Việc của tôi</span>}
         </div>
         <button
@@ -67,7 +48,7 @@ function TaskCard({ assignTask, chemicals, companies, currentUser, deleteTask, d
         <div className="import-details">
           {company && (
             <span className="company-detail">
-              <small>Công ty</small>
+              <small>Seller</small>
               <strong>{company.name}</strong>
             </span>
           )}
@@ -110,7 +91,20 @@ function TaskCard({ assignTask, chemicals, companies, currentUser, deleteTask, d
       <div className="task-card-footer">
         <span className="task-key">{task.key}</span>
         <div className="task-meta">
-          {deadlineInfo && <span className={`deadline ${deadlineInfo.isOverdue ? "deadline-overdue" : ""}`}>{deadlineInfo.label}</span>}
+          {(columnDeadlineInfo || taskDeadlineInfo) && (
+            <span className="deadline-list">
+              {columnDeadlineInfo && (
+                <span className={`deadline ${columnDeadlineInfo.isOverdue ? "deadline-overdue" : ""}`}>
+                  {column.title}: {columnDeadlineInfo.label}
+                </span>
+              )}
+              {taskDeadlineInfo && (
+                <span className={`deadline deadline-overall ${taskDeadlineInfo.isOverdue ? "deadline-overdue" : ""}`}>
+                  Tổng: {taskDeadlineInfo.label}
+                </span>
+              )}
+            </span>
+          )}
           {task.comments.length > 0 && <span className="comment-count"><Icon name="comment" size={13} />{task.comments.length}</span>}
           <Priority value={task.priority} />
         </div>
@@ -123,7 +117,6 @@ export default function TaskBoard({
   assignTask,
   chemicals,
   companies,
-  columnColors,
   columns,
   currentUser,
   deleteTask,
@@ -134,7 +127,6 @@ export default function TaskBoard({
   members,
   moveTask,
   openTask,
-  setColumnDraft,
   setDraggedTaskId,
   setDragTargetId,
 }) {
@@ -175,19 +167,14 @@ export default function TaskBoard({
                 <h2>{column.title}</h2>
                 <span className="count">{tasks.length}</span>
               </div>
-              {["todo", "done"].includes(column.id) ? (
-                <span className="fixed-column-label">Cố định</span>
-              ) : (
-                <button className="plain-icon-button" onClick={() => setColumnDraft({ ...column })}>
-                  <Icon name="more" size={16} />
-                </button>
-              )}
+              <span className="fixed-column-label">Quy trình</span>
             </div>
             <div className="task-list">
               {tasks.map((task) => (
                 <TaskCard
                   assignTask={assignTask}
                   chemicals={chemicals}
+                  column={column}
                   companies={companies}
                   currentUser={currentUser}
                   deleteTask={deleteTask}
@@ -206,12 +193,6 @@ export default function TaskBoard({
           </div>
         );
       })}
-      <button
-        className="add-column-button"
-        onClick={() => setColumnDraft({ isNew: true, title: "", color: columnColors[1] })}
-      >
-        <Icon name="plus" size={17} />Thêm cột
-      </button>
     </section>
   );
 }

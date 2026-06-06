@@ -84,12 +84,12 @@ export default function BoardToolbar({
         )}
       </div>
       <div className="toolbar-select">
-        <span>Công ty</span>
+        <span>Seller</span>
         <SelectDropdown
-          ariaLabel="Lọc theo công ty"
+          ariaLabel="Lọc theo Seller"
           onChange={setSelectedCompany}
           options={[
-            { value: "", label: "Tất cả công ty" },
+            { value: "", label: "Tất cả Seller" },
             ...companies.map((company) => ({ value: company.id, label: company.name })),
           ]}
           value={selectedCompany}

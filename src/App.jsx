@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import BoardToolbar from "./components/BoardToolbar";
 import ChemicalManagement from "./components/ChemicalManagement";
-import ColumnModal from "./components/ColumnModal";
 import CompanyEditModal from "./components/CompanyEditModal";
 import CompanyManagement from "./components/CompanyManagement";
 import LabelManagement from "./components/LabelManagement";
@@ -13,6 +12,7 @@ import { loadInitialData, saveStoredData } from "./db";
 import { createSystemBackup, mergeSystemBackup } from "./dataTransfer";
 import { normalizeData } from "./model";
 import { sanitizeRichText, stripRichText } from "./richText";
+import { createWorkflowDueDates, createWorkflowObjectives, DEFAULT_WORKFLOW_COLUMN_ID, moveTaskToWorkflowColumn } from "./workflow";
 
 function App() {
   const [data, setData] = useState(null);
@@ -22,7 +22,6 @@ function App() {
   const [activeView, setActiveView] = useState("board");
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [taskDraft, setTaskDraft] = useState(null);
-  const [columnDraft, setColumnDraft] = useState(null);
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [dragTargetId, setDragTargetId] = useState(null);
   const [commentText, setCommentText] = useState("");
@@ -87,7 +86,7 @@ function App() {
         .join(" ");
       const matchesSearch =
         !query ||
-        `${task.title} ${task.key} ${task.assignee} ${company?.name || ""} ${chemicalNames} ${stripRichText(task.description)} ${task.labels.join(" ")}`
+        `${task.title} ${task.key} ${task.assignee} ${company?.name || ""} ${task.poNumber || ""} ${task.quantity || ""} ${task.amount || ""} ${task.ex || ""} ${chemicalNames} ${stripRichText(task.description)} ${task.labels.join(" ")}`
           .toLowerCase()
           .includes(query);
       const matchesLabels =
@@ -122,7 +121,12 @@ function App() {
 
   function openTask(task) {
     setSelectedTaskId(task.id);
-    setTaskDraft({ ...task, labels: [...task.labels], objectives: [...task.objectives] });
+    setTaskDraft({
+      ...task,
+      labels: [...task.labels],
+      objectives: [...task.objectives],
+      columnDueDates: createWorkflowDueDates(task.columnDueDates),
+    });
     resetTaskInputs();
   }
 
@@ -138,12 +142,17 @@ function App() {
       type: "task",
       priority: "medium",
       assignee: currentUser.name,
+      poNumber: "",
+      quantity: "",
+      amount: "",
+      ex: "",
       dueDate: "",
+      columnDueDates: createWorkflowDueDates(),
       labels: [],
-      objectives: [],
+      objectives: createWorkflowObjectives(DEFAULT_WORKFLOW_COLUMN_ID),
       companyId: "",
       chemicals: [],
-      columnId: "todo",
+      columnId: DEFAULT_WORKFLOW_COLUMN_ID,
       comments: [],
     });
     resetTaskInputs();
@@ -156,6 +165,11 @@ function App() {
       ...taskDraft,
       title: taskDraft.title.trim(),
       description: sanitizeRichText(taskDraft.description),
+      poNumber: String(taskDraft.poNumber || "").trim(),
+      quantity: String(taskDraft.quantity || "").trim(),
+      amount: String(taskDraft.amount || "").trim(),
+      ex: String(taskDraft.ex || "").trim(),
+      columnDueDates: createWorkflowDueDates(taskDraft.columnDueDates),
       labels: [...new Set(taskDraft.labels.filter((label) => data.labels.some((item) => item.name === label)))],
       objectives: taskDraft.objectives
         .map((objective) => ({ ...objective, text: objective.text.trim() }))
@@ -192,54 +206,12 @@ function App() {
     }));
   }
 
-  function saveColumn() {
-    if (!columnDraft?.title.trim()) return;
-
-    if (columnDraft.isNew) {
-      updateData((current) => {
-        const doneIndex = current.columns.findIndex((column) => column.id === "done");
-        const columns = [...current.columns];
-        columns.splice(doneIndex < 0 ? columns.length : doneIndex, 0, {
-          id: `column-${Date.now()}`,
-          title: columnDraft.title.trim(),
-          color: columnDraft.color,
-        });
-
-        return { ...current, columns };
-      });
-    } else {
-      updateData((current) => ({
-        ...current,
-        columns: current.columns.map((column) =>
-          column.id === columnDraft.id
-            ? { ...column, title: columnDraft.title.trim(), color: columnDraft.color }
-            : column,
-        ),
-      }));
-    }
-    setColumnDraft(null);
-  }
-
-  function deleteColumn() {
-    if (!columnDraft || columnDraft.isNew || ["todo", "done"].includes(columnDraft.id)) return;
-
-    const taskCount = data.tasks.filter((task) => task.columnId === columnDraft.id).length;
-    if (taskCount > 0) {
-      window.alert("Chỉ có thể xóa cột không chứa công việc. Hãy di chuyển các công việc trước.");
-      return;
-    }
-
-    updateData((current) => ({
-      ...current,
-      columns: current.columns.filter((column) => column.id !== columnDraft.id),
-    }));
-    setColumnDraft(null);
-  }
-
   function moveTask(taskId, columnId) {
     updateData((current) => ({
       ...current,
-      tasks: current.tasks.map((task) => (task.id === taskId ? { ...task, columnId } : task)),
+      tasks: current.tasks.map((task) =>
+        task.id === taskId ? moveTaskToWorkflowColumn(task, columnId) : task,
+      ),
     }));
   }
 
@@ -326,7 +298,7 @@ function App() {
         company.name.toLocaleLowerCase("vi") === name.toLocaleLowerCase("vi"),
     );
     if (duplicate) {
-      window.alert("Tên công ty đã tồn tại trong hệ thống.");
+      window.alert("Tên Seller đã tồn tại trong hệ thống.");
       return;
     }
 
@@ -353,10 +325,10 @@ function App() {
 
     const isUsed = data.tasks.some((task) => task.companyId === companyId);
     if (isUsed) {
-      window.alert("Không thể xóa công ty đang được sử dụng trong công việc.");
+      window.alert("Không thể xóa Seller đang được sử dụng trong công việc.");
       return;
     }
-    if (!window.confirm(`Xóa công ty ${company.name}?`)) return;
+    if (!window.confirm(`Xóa Seller ${company.name}?`)) return;
 
     updateData((current) => ({
       ...current,
@@ -478,7 +450,7 @@ function App() {
 
       setData(result.data);
       window.alert(
-        `Đã nhập dữ liệu mới: ${summary.tasks} công việc, ${summary.companies} công ty, ${summary.chemicals} hóa chất, ${summary.labels} nhãn, ${summary.columns} cột và ${summary.members} người phụ trách. Bỏ qua ${summary.skippedTasks} công việc đã tồn tại.`,
+        `Đã nhập dữ liệu mới: ${summary.tasks} công việc, ${summary.companies} Seller, ${summary.chemicals} hóa chất, ${summary.labels} nhãn, ${summary.columns} cột và ${summary.members} người phụ trách. Bỏ qua ${summary.skippedTasks} công việc đã tồn tại.`,
       );
     } catch (error) {
       window.alert(`Không thể nhập dữ liệu. ${error.message}`);
@@ -517,7 +489,6 @@ function App() {
               assignTask={assignTask}
               chemicals={data.chemicals}
               companies={data.companies}
-              columnColors={columnColors}
               columns={data.columns}
               currentUser={currentUser}
               deleteTask={deleteTaskFromBoard}
@@ -527,7 +498,6 @@ function App() {
               members={members}
               moveTask={moveTask}
               openTask={openTask}
-              setColumnDraft={setColumnDraft}
               labels={data.labels}
               setDraggedTaskId={setDraggedTaskId}
               setDragTargetId={setDragTargetId}
@@ -581,13 +551,6 @@ function App() {
         setNewAssigneeName={setNewAssigneeName}
         setTaskDraft={setTaskDraft}
         taskDraft={taskDraft}
-      />
-      <ColumnModal
-        columnColors={columnColors}
-        columnDraft={columnDraft}
-        deleteColumn={deleteColumn}
-        saveColumn={saveColumn}
-        setColumnDraft={setColumnDraft}
       />
       <CompanyEditModal
         companyDraft={editingCompanyDraft}

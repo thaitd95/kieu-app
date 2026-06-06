@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { Avatar, Icon, TypeIcon } from "./Common";
+import { Avatar, Icon } from "./Common";
+import { getDeadlineInfo } from "../deadline";
 import { RichTextEditor } from "./RichText";
 import SelectDropdown from "./SelectDropdown";
+import { moveTaskToWorkflowColumn } from "../workflow";
 
 function ChemicalMultiSelect({ items, setTaskDraft, taskDraft }) {
   function toggleChemical(chemicalId) {
@@ -72,30 +73,8 @@ function LabelMultiSelect({ items, setTaskDraft, taskDraft }) {
 }
 
 function ObjectiveChecklist({ setTaskDraft, taskDraft }) {
-  const [newObjectiveText, setNewObjectiveText] = useState("");
-  const completedCount = taskDraft.objectives.filter((objective) => objective.completed).length;
-
-  useEffect(() => {
-    setNewObjectiveText("");
-  }, [taskDraft.id]);
-
-  function addObjective() {
-    const text = newObjectiveText.trim();
-    if (!text) return;
-
-    setTaskDraft((current) => ({
-      ...current,
-      objectives: [
-        ...current.objectives,
-        {
-          id: `${current.id}-objective-${Date.now()}-${current.objectives.length + 1}`,
-          text,
-          completed: false,
-        },
-      ],
-    }));
-    setNewObjectiveText("");
-  }
+  const requiredObjectives = taskDraft.objectives.filter((objective) => !objective.optional);
+  const completedCount = requiredObjectives.filter((objective) => objective.completed).length;
 
   function updateObjective(objectiveId, changes) {
     setTaskDraft((current) => ({
@@ -106,18 +85,11 @@ function ObjectiveChecklist({ setTaskDraft, taskDraft }) {
     }));
   }
 
-  function deleteObjective(objectiveId) {
-    setTaskDraft((current) => ({
-      ...current,
-      objectives: current.objectives.filter((objective) => objective.id !== objectiveId),
-    }));
-  }
-
   return (
     <section className="objective-checklist">
       <div className="objective-checklist-header">
         <h3 className="section-title">Chỉ tiêu công việc</h3>
-        <span>{completedCount}/{taskDraft.objectives.length} hoàn thành</span>
+        <span>{completedCount}/{requiredObjectives.length} chỉ tiêu bắt buộc</span>
       </div>
       {taskDraft.objectives.length > 0 ? (
         <div className="objective-list">
@@ -129,43 +101,29 @@ function ObjectiveChecklist({ setTaskDraft, taskDraft }) {
                 onChange={(event) => updateObjective(objective.id, { completed: event.target.checked })}
                 type="checkbox"
               />
-              <input
-                aria-label="Nội dung chỉ tiêu"
-                onChange={(event) => updateObjective(objective.id, { text: event.target.value })}
-                type="text"
-                value={objective.text}
-              />
-              <button
-                aria-label={`Xóa chỉ tiêu ${objective.text}`}
-                onClick={() => deleteObjective(objective.id)}
-                title="Xóa chỉ tiêu"
-                type="button"
-              >
-                <Icon name="trash" size={14} />
-              </button>
+              <div className="objective-content">
+                <div className="objective-label">
+                  <span>{objective.text}</span>
+                  {objective.optional && <small>Không bắt buộc</small>}
+                </div>
+                {objective.commentable && (
+                  <textarea
+                    aria-label={`Comment cho chỉ tiêu ${objective.text}`}
+                    onChange={(event) =>
+                      updateObjective(objective.id, { comment: event.target.value })
+                    }
+                    placeholder="Nhập comment..."
+                    rows="2"
+                    value={objective.comment}
+                  />
+                )}
+              </div>
             </div>
           ))}
         </div>
       ) : (
         <p className="objective-empty">Chưa có chỉ tiêu nào cho công việc này.</p>
       )}
-      <div className="objective-add">
-        <input
-          onChange={(event) => setNewObjectiveText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              addObjective();
-            }
-          }}
-          placeholder="Thêm chỉ tiêu mới"
-          type="text"
-          value={newObjectiveText}
-        />
-        <button disabled={!newObjectiveText.trim()} onClick={addObjective} type="button">
-          <Icon name="plus" size={14} />Thêm
-        </button>
-      </div>
     </section>
   );
 }
@@ -197,7 +155,7 @@ export default function TaskModal({
     <div className="modal-backdrop" onMouseDown={() => setTaskDraft(null)}>
       <section className="task-modal" onMouseDown={(event) => event.stopPropagation()}>
         <header className="task-modal-header">
-          <div className="issue-path"><TypeIcon type={taskDraft.type} /><span>{taskDraft.key}</span><Icon name="chevron" size={13} /><span>{selectedTaskId === "new" ? "Tạo công việc" : "Chi tiết công việc"}</span></div>
+          <div className="issue-path"><span>{taskDraft.key}</span><Icon name="chevron" size={13} /><span>{selectedTaskId === "new" ? "Tạo công việc" : "Chi tiết công việc"}</span></div>
           <div className="modal-header-actions">
             {selectedTaskId !== "new" && <button className="modal-icon danger-hover" onClick={deleteTask} title="Xóa công việc"><Icon name="trash" size={17} /></button>}
             <button className="modal-icon" onClick={() => setTaskDraft(null)}><Icon name="close" size={19} /></button>
@@ -209,13 +167,54 @@ export default function TaskModal({
               autoFocus={selectedTaskId === "new"}
               className="title-input"
               onChange={(event) => setTaskDraft({ ...taskDraft, title: event.target.value })}
-              placeholder="Ví dụ: Nhập Axit sulfuric từ Công ty ABC"
+              placeholder="Ví dụ: Nhập Axit sulfuric từ Seller ABC"
               value={taskDraft.title}
             />
             <div className="quick-actions">
               <button><Icon name="edit" size={15} />Chỉnh sửa</button>
               <button><Icon name="comment" size={15} />Thêm ghi chú</button>
             </div>
+            <section className="task-commercial-details">
+              <h3 className="section-title">Thông tin đơn hàng</h3>
+              <div className="task-commercial-grid">
+                <label className="field">
+                  <span>Số PO</span>
+                  <input
+                    onChange={(event) => setTaskDraft({ ...taskDraft, poNumber: event.target.value })}
+                    placeholder="Nhập số PO"
+                    type="text"
+                    value={taskDraft.poNumber}
+                  />
+                </label>
+                <label className="field">
+                  <span>Số lượng</span>
+                  <input
+                    onChange={(event) => setTaskDraft({ ...taskDraft, quantity: event.target.value })}
+                    placeholder="Nhập số lượng"
+                    type="text"
+                    value={taskDraft.quantity}
+                  />
+                </label>
+                <label className="field">
+                  <span>Số tiền</span>
+                  <input
+                    onChange={(event) => setTaskDraft({ ...taskDraft, amount: event.target.value })}
+                    placeholder="Nhập số tiền"
+                    type="text"
+                    value={taskDraft.amount}
+                  />
+                </label>
+                <label className="field">
+                  <span>EX</span>
+                  <input
+                    onChange={(event) => setTaskDraft({ ...taskDraft, ex: event.target.value })}
+                    placeholder="Nhập EX"
+                    type="text"
+                    value={taskDraft.ex}
+                  />
+                </label>
+              </div>
+            </section>
             <h3 className="section-title">Mô tả</h3>
             <RichTextEditor
               onChange={(description) => setTaskDraft({ ...taskDraft, description })}
@@ -256,7 +255,9 @@ export default function TaskModal({
               <SelectDropdown
                 ariaLabel="Trạng thái công việc"
                 className="status-select"
-                onChange={(columnId) => setTaskDraft({ ...taskDraft, columnId })}
+                onChange={(columnId) =>
+                  setTaskDraft((current) => moveTaskToWorkflowColumn(current, columnId))
+                }
                 options={data.columns.map((column) => ({
                   value: column.id,
                   label: column.title,
@@ -267,19 +268,6 @@ export default function TaskModal({
               />
             </div>
             <h3>Chi tiết</h3>
-            <div className="field">
-              <span>Loại công việc</span>
-              <SelectDropdown
-                ariaLabel="Loại công việc"
-                onChange={(type) => setTaskDraft({ ...taskDraft, type })}
-                options={[
-                  { value: "task", label: "Task", color: "#0c66e4" },
-                  { value: "story", label: "Story", color: "#22a06b" },
-                  { value: "bug", label: "Bug", color: "#c9372c" },
-                ]}
-                value={taskDraft.type}
-              />
-            </div>
             <div className="field">
               <span>
                 Người phụ trách
@@ -326,17 +314,17 @@ export default function TaskModal({
               )}
             </div>
             <div className="field">
-              <span>Công ty</span>
+              <span>Seller</span>
               <SelectDropdown
-                ariaLabel="Công ty"
+                ariaLabel="Seller"
                 onChange={(companyId) => setTaskDraft({ ...taskDraft, companyId })}
                 options={[
-                  { value: "", label: "Chưa chọn công ty" },
+                  { value: "", label: "Chưa chọn Seller" },
                   ...data.companies.map((company) => ({ value: company.id, label: company.name })),
                 ]}
                 value={taskDraft.companyId}
               />
-              {data.companies.length === 0 && <small className="catalog-guidance">Hãy tạo công ty tại tab Công ty.</small>}
+              {data.companies.length === 0 && <small className="catalog-guidance">Hãy tạo Seller tại tab Seller.</small>}
             </div>
             <ChemicalMultiSelect
               items={data.chemicals}
@@ -358,9 +346,50 @@ export default function TaskModal({
               />
             </div>
             <label className="field">
-              <span>Ngày hết hạn</span>
+              <span>Ngày hết hạn công việc</span>
               <input type="date" value={taskDraft.dueDate} onChange={(event) => setTaskDraft({ ...taskDraft, dueDate: event.target.value })} />
             </label>
+            <section className="column-deadlines">
+              <div className="column-deadlines-header">
+                <h3>Ngày hết hạn theo trạng thái</h3>
+                <small>Dùng để tính số ngày đến hạn khi công việc ở từng cột.</small>
+              </div>
+              {data.columns.map((column) => {
+                const deadlineInfo = getDeadlineInfo(taskDraft.columnDueDates[column.id]);
+
+                return (
+                  <label
+                    className={`column-deadline-field ${taskDraft.columnId === column.id ? "current" : ""}`}
+                    key={column.id}
+                  >
+                    <span>
+                      <i style={{ backgroundColor: column.color }} />
+                      {column.title}
+                      {taskDraft.columnId === column.id && <small>Hiện tại</small>}
+                    </span>
+                    <input
+                      aria-label={`Ngày hết hạn cột ${column.title}`}
+                      onChange={(event) =>
+                        setTaskDraft((current) => ({
+                          ...current,
+                          columnDueDates: {
+                            ...current.columnDueDates,
+                            [column.id]: event.target.value,
+                          },
+                        }))
+                      }
+                      type="date"
+                      value={taskDraft.columnDueDates[column.id] || ""}
+                    />
+                    {deadlineInfo && (
+                      <small className={deadlineInfo.isOverdue ? "overdue" : ""}>
+                        {deadlineInfo.label}
+                      </small>
+                    )}
+                  </label>
+                );
+              })}
+            </section>
             <LabelMultiSelect items={data.labels} setTaskDraft={setTaskDraft} taskDraft={taskDraft} />
           </aside>
         </div>

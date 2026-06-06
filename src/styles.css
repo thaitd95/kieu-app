@@ -235,9 +235,11 @@ h1 { margin: 0; color: var(--text); font: 800 25px "Manrope", sans-serif; letter
 .quick-assignee-select .custom-select-trigger { height: 21px; padding: 0; color: var(--text-muted); border: 0; background: transparent; box-shadow: none; font-size: 10px; font-weight: 600; }
 .quick-assignee-select .custom-select-trigger:hover { color: var(--text-secondary); background: transparent; }
 .task-key { color: var(--text-subtle); font-size: 10px; font-weight: 600; }
-.task-meta { gap: 7px; }
+.task-meta { min-width: 0; flex: 1; flex-wrap: wrap; justify-content: flex-end; gap: 5px 7px; }
 .comment-count, .deadline, .priority { display: flex; align-items: center; gap: 3px; color: var(--text-subtle); font-size: 10px; font-weight: 700; }
+.deadline-list { display: flex; min-width: 0; flex-direction: column; align-items: flex-end; gap: 2px; }
 .deadline { white-space: nowrap; }
+.deadline-overall { font-size: 9px; font-weight: 600; }
 .deadline-overdue { color: var(--danger); }
 .priority-highest { color: var(--priority-highest); }.priority-high { color: var(--priority-high); }.priority-medium { color: var(--priority-medium); }.priority-low { color: var(--priority-low); }
 .add-column-button { display: flex; align-items: center; gap: 7px; width: 185px; min-width: 185px; height: 42px; padding: 0 13px; color: var(--text-secondary); border: 1px dashed var(--border); border-radius: 6px; background: var(--surface-subtle); font-size: 12px; font-weight: 600; }
@@ -293,13 +295,14 @@ h1 { margin: 0; color: var(--text); font: 800 25px "Manrope", sans-serif; letter
 .objective-checklist-header .section-title { margin: 0; }
 .objective-checklist-header span { color: var(--text-subtle); font-size: 10px; font-weight: 700; }
 .objective-list { display: flex; flex-direction: column; gap: 5px; }
-.objective-item { display: flex; align-items: center; gap: 7px; padding: 5px 6px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--surface-subtle); }
+.objective-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--surface-subtle); }
 .objective-item > input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var(--primary); cursor: pointer; }
-.objective-item > input[type="text"] { min-width: 0; height: 26px; flex: 1; padding: 0 5px; color: var(--text-secondary); border: 1px solid transparent; border-radius: 3px; outline: 0; background: transparent; font-size: 12px; }
-.objective-item > input[type="text"]:focus { border-color: var(--border-focus); background: var(--surface); }
-.objective-item.completed > input[type="text"] { color: var(--text-faint); text-decoration: line-through; }
-.objective-item button { display: grid; width: 25px; height: 25px; flex: 0 0 auto; place-items: center; padding: 0; color: var(--text-subtle); border: 0; border-radius: 3px; background: transparent; }
-.objective-item button:hover { color: var(--danger); background: var(--surface-danger); }
+.objective-content { min-width: 0; flex: 1; }
+.objective-label { display: flex; align-items: center; gap: 7px; min-height: 15px; color: var(--text-secondary); font-size: 12px; }
+.objective-label small { padding: 2px 5px; border-radius: 3px; color: var(--text-subtle); background: var(--surface-hover); font-size: 9px; font-weight: 600; }
+.objective-item.completed .objective-label > span { color: var(--text-faint); text-decoration: line-through; }
+.objective-content textarea { display: block; width: 100%; margin-top: 7px; padding: 7px 8px; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; outline: 0; resize: vertical; background: var(--surface); font-size: 11px; line-height: 1.45; }
+.objective-content textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
 .objective-empty { margin: 0; padding: 9px; color: var(--text-subtle); border: 1px dashed var(--border); border-radius: 4px; font-size: 11px; }
 .objective-add { display: flex; gap: 6px; margin-top: 7px; }
 .objective-add input { min-width: 0; height: 33px; flex: 1; padding: 0 8px; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; outline: 0; background: var(--surface); font-size: 12px; }
@@ -314,6 +317,24 @@ h1 { margin: 0; color: var(--text); font: 800 25px "Manrope", sans-serif; letter
 .field small, .color-field small { color: var(--text-faint); font-size: 9px; font-weight: 500; letter-spacing: 0; text-transform: none; }
 .field .personal-field-label { margin-left: 6px; color: var(--primary); font-weight: 700; }
 .field input { width: 100%; height: 35px; padding: 0 8px; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; outline: 0; background: var(--surface); font-size: 12px; }
+.task-commercial-details { margin: 0 0 24px; padding: 14px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-subtle); }
+.task-commercial-details > h3 { margin: 0 0 12px; }
+.task-commercial-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 8px; }
+.task-commercial-grid .field { min-width: 0; margin: 0; }
+.task-commercial-grid .field input { height: 35px; font-size: 12px; }
+.column-deadlines { margin: 20px 0 17px; padding-top: 17px; border-top: 1px solid var(--border-subtle); }
+.column-deadlines-header { margin-bottom: 10px; }
+.column-deadlines-header h3 { margin: 0 0 5px; }
+.column-deadlines-header small { display: block; color: var(--text-faint); font-size: 9px; line-height: 1.45; }
+.column-deadline-field { display: block; margin-bottom: 8px; padding: 7px; border: 1px solid var(--border-subtle); border-radius: 5px; background: var(--surface); }
+.column-deadline-field.current { border-color: color-mix(in srgb, var(--primary) 48%, var(--border)); background: var(--surface-accent); }
+.column-deadline-field > span { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; color: var(--text-muted); font-size: 10px; font-weight: 700; }
+.column-deadline-field > span i { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; }
+.column-deadline-field > span small { margin-left: auto; color: var(--primary); font-size: 8px; font-weight: 700; text-transform: uppercase; }
+.column-deadline-field input { width: 100%; height: 32px; padding: 0 7px; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; outline: 0; background: var(--surface); font-size: 11px; }
+.column-deadline-field input:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.column-deadline-field > small { display: block; margin-top: 5px; color: var(--text-subtle); font-size: 9px; font-weight: 600; text-align: right; }
+.column-deadline-field > small.overdue { color: var(--danger); }
 .status-select .custom-select-trigger { color: color-mix(in srgb, var(--status-color) 68%, var(--dynamic-text-base)); border-color: color-mix(in srgb, var(--status-color) 68%, var(--surface)); background: color-mix(in srgb, var(--status-color) 10%, var(--surface)); font-weight: 700; }
 .add-assignee { display: flex; gap: 5px; margin-top: 7px; }
 .add-assignee input { min-width: 0; flex: 1; height: 32px; }

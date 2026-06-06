@@ -11,17 +11,17 @@ export default function CompanyEditModal({ companyDraft, saveCompany, setCompany
       <section className="small-modal company-edit-modal" onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <div>
-            <p className="eyebrow">THÔNG TIN CÔNG TY</p>
-            <h2>{isEditing ? "Chỉnh sửa công ty" : "Thêm công ty"}</h2>
+            <p className="eyebrow">THÔNG TIN SELLER</p>
+            <h2>{isEditing ? "Chỉnh sửa Seller" : "Thêm Seller"}</h2>
           </div>
           <button className="modal-icon" onClick={() => setCompanyDraft(null)}><Icon name="close" /></button>
         </header>
         <label className="field">
-          <span>Tên công ty</span>
+          <span>Tên Seller</span>
           <input
             autoFocus
             onChange={(event) => setCompanyDraft({ ...companyDraft, name: event.target.value })}
-            placeholder="Ví dụ: Công ty ABC"
+            placeholder="Ví dụ: Seller ABC"
             value={companyDraft.name}
           />
         </label>
@@ -29,7 +29,7 @@ export default function CompanyEditModal({ companyDraft, saveCompany, setCompany
           <span>Địa chỉ</span>
           <input
             onChange={(event) => setCompanyDraft({ ...companyDraft, address: event.target.value })}
-            placeholder="Nhập địa chỉ công ty"
+            placeholder="Nhập địa chỉ Seller"
             value={companyDraft.address}
           />
         </label>
@@ -38,7 +38,7 @@ export default function CompanyEditModal({ companyDraft, saveCompany, setCompany
           <RichTextEditor
             minHeight={92}
             onChange={(description) => setCompanyDraft({ ...companyDraft, description })}
-            placeholder="Thông tin bổ sung về công ty"
+            placeholder="Thông tin bổ sung về Seller"
             value={companyDraft.description}
           />
         </label>
@@ -46,7 +46,7 @@ export default function CompanyEditModal({ companyDraft, saveCompany, setCompany
           <span />
           <button className="secondary-button" onClick={() => setCompanyDraft(null)}>Hủy</button>
           <button className="primary-button" disabled={!companyDraft.name.trim()} onClick={() => saveCompany(companyDraft)}>
-            {isEditing ? "Lưu thay đổi" : "Thêm công ty"}
+            {isEditing ? "Lưu thay đổi" : "Thêm Seller"}
           </button>
         </footer>
       </section>

@@ -1,5 +1,6 @@
 import { currentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, fixedColumns, legacyDefaultMembers } from "./data";
 import { sanitizeRichText } from "./richText";
+import { createWorkflowDueDates, createWorkflowObjectives, resolveWorkflowColumnId } from "./workflow";
 
 function createChemicalId(name, chemicals) {
   const base =
@@ -152,32 +153,39 @@ export function normalizeData(savedData) {
         id: objective?.id || `${task.id || "task"}-objective-${index + 1}`,
         text: String(objective?.text || "").trim(),
         completed: Boolean(objective?.completed),
+        comment: String(objective?.comment || ""),
       }))
       .filter((objective) => objective.text);
   }
 
-  const legacyColumnIds = new Set(["backlog", "progress", "review"]);
-  const customColumns = (savedData.columns || []).filter(
-    (column) =>
-      column?.id &&
-      column.title?.trim() &&
-      !fixedColumns.some((fixedColumn) => fixedColumn.id === column.id) &&
-      !legacyColumnIds.has(column.id),
+  const savedColumnTitles = new Map(
+    (savedData.columns || []).map((column) => [column.id, column.title]),
   );
-  const columns = [fixedColumns[0], ...customColumns, fixedColumns[1]];
-  const columnIds = new Set(columns.map((column) => column.id));
+  const columns = fixedColumns;
 
-  const tasks = (savedData.tasks || []).map((task) => ({
-    ...task,
-    key: task.key?.replace(/^TF-/, "KA-"),
-    assignee: uniqueMembers.includes(task.assignee) ? task.assignee : currentUser.name,
-    columnId: columnIds.has(task.columnId) ? task.columnId : "todo",
-    companyId: registerCompany(task.companyId || task.company),
-    chemicals: normalizeTaskChemicals(task),
-    labels: normalizeTaskLabels(task),
-    objectives: normalizeTaskObjectives(task),
-    description: sanitizeRichText(task.description),
-  }));
+  const tasks = (savedData.tasks || []).map((task) => {
+    const columnId = resolveWorkflowColumnId(
+      task.columnId,
+      savedColumnTitles.get(task.columnId),
+    );
+
+    return {
+      ...task,
+      key: task.key?.replace(/^TF-/, "KA-"),
+      assignee: uniqueMembers.includes(task.assignee) ? task.assignee : currentUser.name,
+      columnId,
+      poNumber: String(task.poNumber || ""),
+      quantity: String(task.quantity || ""),
+      amount: String(task.amount || ""),
+      ex: String(task.ex || ""),
+      companyId: registerCompany(task.companyId || task.company),
+      chemicals: normalizeTaskChemicals(task),
+      labels: normalizeTaskLabels(task),
+      objectives: createWorkflowObjectives(columnId, normalizeTaskObjectives(task)),
+      columnDueDates: createWorkflowDueDates(task.columnDueDates),
+      description: sanitizeRichText(task.description),
+    };
+  });
 
   return {
     ...savedData,
