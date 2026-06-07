@@ -24,7 +24,7 @@ export default function CompanyManagement({
               <h2>Danh sách Seller</h2>
               <p>{companies.length} Seller trong hệ thống</p>
             </div>
-            <button className="primary-button" onClick={() => setEditingCompanyDraft({ name: "", address: "", description: "" })} type="button">
+            <button className="primary-button" onClick={() => setEditingCompanyDraft({ name: "", accountNumber: "", officeAddress: "", producerAddress: "", description: "" })} type="button">
               <Icon name="plus" size={15} />Thêm Seller
             </button>
           </div>
@@ -38,7 +38,11 @@ export default function CompanyManagement({
                     <div className="company-system-main">
                       <div>
                         <strong>{company.name}</strong>
-                        <span>{company.address || "Chưa có địa chỉ"}</span>
+                        <dl className="company-system-details">
+                          <div><dt>Số tài khoản</dt><dd>{company.accountNumber || "Chưa có"}</dd></div>
+                          <div><dt>Office</dt><dd>{company.officeAddress || "Chưa có địa chỉ"}</dd></div>
+                          <div><dt>Producer</dt><dd>{company.producerAddress || "Chưa có địa chỉ"}</dd></div>
+                        </dl>
                       </div>
                       <RichTextContent className="company-system-description" fallback="Chưa có mô tả." value={company.description} />
                     </div>

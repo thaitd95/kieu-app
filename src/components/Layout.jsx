@@ -9,12 +9,11 @@ export function Sidebar({ activeView, currentUser, members, setActiveView, setTh
       </div>
       <nav className="sidebar-nav">
         <button className={`nav-item ${activeView === "board" ? "active" : ""}`} onClick={() => setActiveView("board")}><Icon name="board" />Bảng công việc</button>
+        <button className={`nav-item ${activeView === "completedArchive" ? "active" : ""}`} onClick={() => setActiveView("completedArchive")}><Icon name="archive" />Công việc đã hoàn tất</button>
         <button className={`nav-item ${activeView === "chemicals" ? "active" : ""}`} onClick={() => setActiveView("chemicals")}><Icon name="flask" />Hóa chất</button>
         <button className={`nav-item ${activeView === "companies" ? "active" : ""}`} onClick={() => setActiveView("companies")}><Icon name="building" />Seller</button>
         <button className={`nav-item ${activeView === "labels" ? "active" : ""}`} onClick={() => setActiveView("labels")}><Icon name="tag" />Nhãn</button>
-        <a className="nav-item" href="#"><Icon name="timeline" />Lộ trình</a>
-        <a className="nav-item" href="#"><Icon name="report" />Báo cáo</a>
-        <a className="nav-item" href="#"><Icon name="setting" />Cài đặt dự án</a>
+        <button className={`nav-item ${activeView === "reports" ? "active" : ""}`} onClick={() => setActiveView("reports")}><Icon name="report" />Báo cáo</button>
       </nav>
       <div className="sidebar-project">
         <p>DỰ ÁN</p>

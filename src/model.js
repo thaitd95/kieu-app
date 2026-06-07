@@ -1,6 +1,7 @@
-import { currentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, fixedColumns, legacyDefaultMembers } from "./data";
-import { sanitizeRichText } from "./richText";
-import { createWorkflowDueDates, createWorkflowObjectives, resolveWorkflowColumnId } from "./workflow";
+import { currentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, fixedColumns, legacyDefaultMembers } from "./data.js";
+import { sanitizeRichText } from "./richText.js";
+import { normalizePaymentMethod, normalizeShippingMethod } from "./reportData.js";
+import { createWorkflowActualDates, createWorkflowDueDates, createWorkflowObjectives, createWorkflowStartedDates, resolveWorkflowColumnId, workflowColumns } from "./workflow.js";
 
 function createChemicalId(name, chemicals) {
   const base =
@@ -74,7 +75,10 @@ export function normalizeData(savedData) {
     const company = {
       id: typeof value === "object" && value.id ? value.id : createCompanyId(name, companies),
       name,
-      address: (typeof value === "object" && value.address) || "",
+      accountNumber: (typeof value === "object" && value.accountNumber) || "",
+      officeAddress:
+        (typeof value === "object" && (value.officeAddress || value.address)) || "",
+      producerAddress: (typeof value === "object" && value.producerAddress) || "",
       description: sanitizeRichText((typeof value === "object" && value.description) || ""),
     };
     companies.push(company);
@@ -169,20 +173,37 @@ export function normalizeData(savedData) {
       savedColumnTitles.get(task.columnId),
     );
 
+    const columnActualDates = createWorkflowActualDates(task.columnActualDates);
+    const columnStartedDates = createWorkflowStartedDates(task.columnStartedDates);
+    const currentColumnIndex = workflowColumns.findIndex((column) => column.id === columnId);
+    const previousColumnId = workflowColumns[currentColumnIndex - 1]?.id;
+    if (!columnStartedDates[columnId] && previousColumnId) {
+      columnStartedDates[columnId] = columnActualDates[previousColumnId] || "";
+    }
+
     return {
       ...task,
       key: task.key?.replace(/^TF-/, "KA-"),
       assignee: uniqueMembers.includes(task.assignee) ? task.assignee : currentUser.name,
       columnId,
+      createdAt: /^\d{4}-\d{2}-\d{2}$/.test(task.createdAt || "") ? task.createdAt : "",
+      priority: task.priority === "high" || task.priority === "highest" ? "high" : "low",
       poNumber: String(task.poNumber || ""),
       quantity: String(task.quantity || ""),
       amount: String(task.amount || ""),
       ex: String(task.ex || ""),
+      paymentMethod: normalizePaymentMethod(task.paymentMethod),
+      shippingMethod: normalizeShippingMethod(task.shippingMethod),
       companyId: registerCompany(task.companyId || task.company),
       chemicals: normalizeTaskChemicals(task),
       labels: normalizeTaskLabels(task),
       objectives: createWorkflowObjectives(columnId, normalizeTaskObjectives(task)),
       columnDueDates: createWorkflowDueDates(task.columnDueDates),
+      columnActualDates,
+      columnStartedDates,
+      completedArchivedAt: /^\d{4}-\d{2}-\d{2}$/.test(task.completedArchivedAt || "")
+        ? task.completedArchivedAt
+        : "",
       description: sanitizeRichText(task.description),
     };
   });

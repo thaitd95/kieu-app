@@ -5,17 +5,21 @@ import CompanyEditModal from "./components/CompanyEditModal";
 import CompanyManagement from "./components/CompanyManagement";
 import LabelManagement from "./components/LabelManagement";
 import { BoardHeader, Sidebar, Topbar } from "./components/Layout";
-import TaskBoard from "./components/TaskBoard";
+import ReportManagement from "./components/ReportManagement";
+import TaskBoard, { CompletedArchiveSection } from "./components/TaskBoard";
 import TaskModal from "./components/TaskModal";
 import { chemicalColors, columnColors, currentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, initialData, labelColors } from "./data";
 import { loadInitialData, saveStoredData } from "./db";
 import { createSystemBackup, mergeSystemBackup } from "./dataTransfer";
+import { getTaskPriority } from "./deadline";
 import { normalizeData } from "./model";
+import { normalizePaymentMethod, normalizeShippingMethod, paymentMethods, shippingMethods } from "./reportData";
 import { sanitizeRichText, stripRichText } from "./richText";
-import { createWorkflowDueDates, createWorkflowObjectives, DEFAULT_WORKFLOW_COLUMN_ID, moveTaskToWorkflowColumn } from "./workflow";
+import { archiveCompletedTask as archiveWorkflowCompletedTask, createWorkflowActualDates, createWorkflowDueDates, createWorkflowObjectives, createWorkflowStartedDates, DEFAULT_WORKFLOW_COLUMN_ID, getLocalDateString, getWorkflowMoveBlockReason, isTaskInCompletedArchive, moveTaskToWorkflowColumn } from "./workflow";
 
 function App() {
   const [data, setData] = useState(null);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [isDataReady, setIsDataReady] = useState(false);
   const [storageError, setStorageError] = useState("");
   const [search, setSearch] = useState("");
@@ -35,6 +39,7 @@ function App() {
   const [newChemicalName, setNewChemicalName] = useState("");
   const [newChemicalColor, setNewChemicalColor] = useState(defaultChemicalColor);
   const [editingCompanyDraft, setEditingCompanyDraft] = useState(null);
+  const [exportingReportType, setExportingReportType] = useState("");
   const [theme, setTheme] = useState(() => localStorage.getItem("kieu-assistant-theme") || "light");
 
   useEffect(() => {
@@ -68,6 +73,11 @@ function App() {
     localStorage.setItem("kieu-assistant-theme", theme);
   }, [theme]);
 
+  useEffect(() => {
+    const timerId = window.setInterval(() => setCurrentTime(Date.now()), 60 * 1000);
+    return () => window.clearInterval(timerId);
+  }, []);
+
   const members = data?.members || defaultMembers;
   const customMembers = members.filter((person) => person !== currentUser.name);
   const availableLabels = useMemo(
@@ -86,7 +96,7 @@ function App() {
         .join(" ");
       const matchesSearch =
         !query ||
-        `${task.title} ${task.key} ${task.assignee} ${company?.name || ""} ${task.poNumber || ""} ${task.quantity || ""} ${task.amount || ""} ${task.ex || ""} ${chemicalNames} ${stripRichText(task.description)} ${task.labels.join(" ")}`
+        `${task.title} ${task.key} ${task.assignee} ${company?.name || ""} ${task.poNumber || ""} ${task.quantity || ""} ${task.amount || ""} ${task.ex || ""} ${task.paymentMethod || ""} ${task.shippingMethod || ""} ${chemicalNames} ${stripRichText(task.description)} ${task.labels.join(" ")}`
           .toLowerCase()
           .includes(query);
       const matchesLabels =
@@ -94,11 +104,26 @@ function App() {
       const matchesAssignee = !showMyTasks || task.assignee === currentUser.name;
       const matchesCompany = !selectedCompany || task.companyId === selectedCompany;
       const matchesChemical = !selectedChemical || task.chemicals.includes(selectedChemical);
-      const matchesPriority = !selectedPriority || task.priority === selectedPriority;
+      const matchesPriority =
+        !selectedPriority || getTaskPriority(task, currentTime) === selectedPriority;
 
       return matchesSearch && matchesLabels && matchesAssignee && matchesCompany && matchesChemical && matchesPriority;
     });
-  }, [data?.tasks, data?.chemicals, data?.companies, search, selectedLabels, showMyTasks, selectedCompany, selectedChemical, selectedPriority]);
+  }, [data?.tasks, data?.chemicals, data?.companies, currentTime, search, selectedLabels, showMyTasks, selectedCompany, selectedChemical, selectedPriority]);
+  const activeBoardTasks = useMemo(
+    () => filteredTasks.filter((task) => !isTaskInCompletedArchive(task, currentTime)),
+    [currentTime, filteredTasks],
+  );
+  const completedArchiveTasks = useMemo(
+    () =>
+      filteredTasks
+        .filter((task) => isTaskInCompletedArchive(task, currentTime))
+        .sort((first, second) =>
+          String(second.completedArchivedAt || second.columnActualDates?.completed || "").localeCompare(
+            String(first.completedArchivedAt || first.columnActualDates?.completed || ""),
+          )),
+    [currentTime, filteredTasks],
+  );
 
   if (storageError) {
     return <div className="storage-state storage-state-error">{storageError}</div>;
@@ -126,6 +151,8 @@ function App() {
       labels: [...task.labels],
       objectives: [...task.objectives],
       columnDueDates: createWorkflowDueDates(task.columnDueDates),
+      columnActualDates: createWorkflowActualDates(task.columnActualDates),
+      columnStartedDates: createWorkflowStartedDates(task.columnStartedDates),
     });
     resetTaskInputs();
   }
@@ -137,17 +164,24 @@ function App() {
     setTaskDraft({
       id: `task-${Date.now()}`,
       key: `KA-${sequence}`,
+      createdAt: getLocalDateString(),
       title: "",
       description: "",
       type: "task",
-      priority: "medium",
+      priority: "low",
       assignee: currentUser.name,
       poNumber: "",
       quantity: "",
       amount: "",
       ex: "",
-      dueDate: "",
+      paymentMethod: paymentMethods[0].value,
+      shippingMethod: shippingMethods.find((method) => method.value === "sea")?.value || shippingMethods[0].value,
       columnDueDates: createWorkflowDueDates(),
+      columnActualDates: createWorkflowActualDates(),
+      columnStartedDates: createWorkflowStartedDates({
+        [DEFAULT_WORKFLOW_COLUMN_ID]: getLocalDateString(),
+      }),
+      completedArchivedAt: "",
       labels: [],
       objectives: createWorkflowObjectives(DEFAULT_WORKFLOW_COLUMN_ID),
       companyId: "",
@@ -165,11 +199,23 @@ function App() {
       ...taskDraft,
       title: taskDraft.title.trim(),
       description: sanitizeRichText(taskDraft.description),
+      createdAt: /^\d{4}-\d{2}-\d{2}$/.test(taskDraft.createdAt || "")
+        ? taskDraft.createdAt
+        : getLocalDateString(),
       poNumber: String(taskDraft.poNumber || "").trim(),
       quantity: String(taskDraft.quantity || "").trim(),
       amount: String(taskDraft.amount || "").trim(),
       ex: String(taskDraft.ex || "").trim(),
+      paymentMethod: normalizePaymentMethod(taskDraft.paymentMethod),
+      shippingMethod: normalizeShippingMethod(taskDraft.shippingMethod),
       columnDueDates: createWorkflowDueDates(taskDraft.columnDueDates),
+      columnActualDates: createWorkflowActualDates(taskDraft.columnActualDates),
+      columnStartedDates: createWorkflowStartedDates(taskDraft.columnStartedDates),
+      completedArchivedAt:
+        taskDraft.columnId === "completed" && /^\d{4}-\d{2}-\d{2}$/.test(taskDraft.completedArchivedAt || "")
+          ? taskDraft.completedArchivedAt
+          : "",
+      priority: getTaskPriority(taskDraft),
       labels: [...new Set(taskDraft.labels.filter((label) => data.labels.some((item) => item.name === label)))],
       objectives: taskDraft.objectives
         .map((objective) => ({ ...objective, text: objective.text.trim() }))
@@ -207,10 +253,26 @@ function App() {
   }
 
   function moveTask(taskId, columnId) {
+    const task = data.tasks.find((item) => item.id === taskId);
+    const blockReason = getWorkflowMoveBlockReason(task, columnId);
+    if (blockReason) {
+      window.alert(blockReason);
+      return;
+    }
+
+    updateData((current) => ({
+      ...current,
+      tasks: current.tasks.map((item) =>
+        item.id === taskId ? moveTaskToWorkflowColumn(item, columnId) : item,
+      ),
+    }));
+  }
+
+  function archiveCompletedTask(taskId) {
     updateData((current) => ({
       ...current,
       tasks: current.tasks.map((task) =>
-        task.id === taskId ? moveTaskToWorkflowColumn(task, columnId) : task,
+        task.id === taskId ? archiveWorkflowCompletedTask(task, currentTime) : task,
       ),
     }));
   }
@@ -306,7 +368,9 @@ function App() {
       ...draft,
       id: draft.id || `company-${Date.now()}`,
       name,
-      address: draft.address.trim(),
+      accountNumber: String(draft.accountNumber || "").trim(),
+      officeAddress: String(draft.officeAddress || "").trim(),
+      producerAddress: String(draft.producerAddress || "").trim(),
       description: sanitizeRichText(draft.description),
     };
 
@@ -457,6 +521,18 @@ function App() {
     }
   }
 
+  async function exportReport(type) {
+    setExportingReportType(type);
+    try {
+      const { downloadReportWorkbook } = await import("./excelReports");
+      await downloadReportWorkbook(data, type);
+    } catch (error) {
+      window.alert(`Không thể xuất báo cáo Excel. ${error.message}`);
+    } finally {
+      setExportingReportType("");
+    }
+  }
+
   return (
     <div className="app-shell">
       <Sidebar activeView={activeView} currentUser={currentUser} members={members} setActiveView={setActiveView} setTheme={setTheme} theme={theme} />
@@ -494,15 +570,24 @@ function App() {
               deleteTask={deleteTaskFromBoard}
               draggedTaskId={draggedTaskId}
               dragTargetId={dragTargetId}
-              filteredTasks={filteredTasks}
+              archiveTask={archiveCompletedTask}
+              filteredTasks={activeBoardTasks}
               members={members}
               moveTask={moveTask}
+              now={currentTime}
               openTask={openTask}
               labels={data.labels}
               setDraggedTaskId={setDraggedTaskId}
               setDragTargetId={setDragTargetId}
             />
           </>
+        ) : activeView === "completedArchive" ? (
+          <CompletedArchiveSection
+            companies={data.companies}
+            completedArchiveTasks={completedArchiveTasks}
+            now={currentTime}
+            openTask={openTask}
+          />
         ) : activeView === "chemicals" ? (
           <ChemicalManagement
             addChemical={addChemical}
@@ -522,7 +607,7 @@ function App() {
             setEditingCompanyDraft={setEditingCompanyDraft}
             tasks={data.tasks}
           />
-        ) : (
+        ) : activeView === "labels" ? (
           <LabelManagement
             addLabel={addLabel}
             deleteLabel={deleteLabel}
@@ -530,6 +615,12 @@ function App() {
             labelColors={labelColors}
             renameLabel={renameLabel}
             tasks={data.tasks}
+          />
+        ) : (
+          <ReportManagement
+            data={data}
+            exportingType={exportingReportType}
+            onExportReport={exportReport}
           />
         )}
       </main>

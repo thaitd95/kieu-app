@@ -1,8 +1,10 @@
 import { Avatar, Icon } from "./Common";
 import { getDeadlineInfo } from "../deadline";
+import { paymentMethods, shippingMethods } from "../reportData";
+import DateField from "./DateField";
 import { RichTextEditor } from "./RichText";
 import SelectDropdown from "./SelectDropdown";
-import { moveTaskToWorkflowColumn } from "../workflow";
+import { getWorkflowMoveBlockReason, moveTaskToWorkflowColumn } from "../workflow";
 
 function ChemicalMultiSelect({ items, setTaskDraft, taskDraft }) {
   function toggleChemical(chemicalId) {
@@ -150,6 +152,25 @@ export default function TaskModal({
   if (!taskDraft) return null;
 
   const selectedTaskColumn = data.columns.find((column) => column.id === taskDraft.columnId);
+  const isTaskCompleted = taskDraft.columnId === "completed";
+
+  function changeStatus(columnId) {
+    setTaskDraft((current) => {
+      const bypassOptions = {
+        isNewTask: selectedTaskId === "new",
+      };
+      const blockReason = getWorkflowMoveBlockReason(current, columnId, bypassOptions);
+      if (blockReason) {
+        window.alert(blockReason);
+        return current;
+      }
+
+      return moveTaskToWorkflowColumn(current, columnId, {
+        ...bypassOptions,
+        recordCompletion: selectedTaskId !== "new",
+      });
+    });
+  }
 
   return (
     <div className="modal-backdrop" onMouseDown={() => setTaskDraft(null)}>
@@ -213,6 +234,24 @@ export default function TaskModal({
                     value={taskDraft.ex}
                   />
                 </label>
+                <div className="field">
+                  <span>Phương thức thanh toán</span>
+                  <SelectDropdown
+                    ariaLabel="Phương thức thanh toán"
+                    onChange={(paymentMethod) => setTaskDraft({ ...taskDraft, paymentMethod })}
+                    options={paymentMethods}
+                    value={taskDraft.paymentMethod}
+                  />
+                </div>
+                <div className="field">
+                  <span>Phương thức vận chuyển</span>
+                  <SelectDropdown
+                    ariaLabel="Phương thức vận chuyển"
+                    onChange={(shippingMethod) => setTaskDraft({ ...taskDraft, shippingMethod })}
+                    options={shippingMethods.map(({ value, label }) => ({ value, label }))}
+                    value={taskDraft.shippingMethod}
+                  />
+                </div>
               </div>
             </section>
             <h3 className="section-title">Mô tả</h3>
@@ -255,9 +294,7 @@ export default function TaskModal({
               <SelectDropdown
                 ariaLabel="Trạng thái công việc"
                 className="status-select"
-                onChange={(columnId) =>
-                  setTaskDraft((current) => moveTaskToWorkflowColumn(current, columnId))
-                }
+                onChange={changeStatus}
                 options={data.columns.map((column) => ({
                   value: column.id,
                   label: column.title,
@@ -331,56 +368,65 @@ export default function TaskModal({
               setTaskDraft={setTaskDraft}
               taskDraft={taskDraft}
             />
-            <div className="field">
-              <span>Độ ưu tiên</span>
-              <SelectDropdown
-                ariaLabel="Độ ưu tiên"
-                onChange={(priority) => setTaskDraft({ ...taskDraft, priority })}
-                options={[
-                  { value: "highest", label: "Cao nhất", color: "#c9372c" },
-                  { value: "high", label: "Cao", color: "#e06c00" },
-                  { value: "medium", label: "Trung bình", color: "#7f5f01" },
-                  { value: "low", label: "Thấp", color: "#0c66e4" },
-                ]}
-                value={taskDraft.priority}
-              />
-            </div>
-            <label className="field">
-              <span>Ngày hết hạn công việc</span>
-              <input type="date" value={taskDraft.dueDate} onChange={(event) => setTaskDraft({ ...taskDraft, dueDate: event.target.value })} />
-            </label>
             <section className="column-deadlines">
               <div className="column-deadlines-header">
-                <h3>Ngày hết hạn theo trạng thái</h3>
-                <small>Dùng để tính số ngày đến hạn khi công việc ở từng cột.</small>
+                <h3>Ngày theo trạng thái</h3>
+                <small>Ghi ngày dự kiến và ngày hoàn thành thực tế cho từng bước.</small>
               </div>
               {data.columns.map((column) => {
-                const deadlineInfo = getDeadlineInfo(taskDraft.columnDueDates[column.id]);
+                const isCurrentColumn = taskDraft.columnId === column.id;
+                const isCompletedColumn = column.id === "completed";
+                const shouldShowPlannedDate = !isTaskCompleted && !isCompletedColumn;
+                const deadlineInfo = isCurrentColumn && !isCompletedColumn
+                  ? getDeadlineInfo(taskDraft.columnDueDates[column.id])
+                  : null;
 
                 return (
                   <label
-                    className={`column-deadline-field ${taskDraft.columnId === column.id ? "current" : ""}`}
+                    className={`column-deadline-field ${isCurrentColumn ? "current" : ""} ${shouldShowPlannedDate ? "" : "actual-only"}`}
                     key={column.id}
                   >
                     <span>
                       <i style={{ backgroundColor: column.color }} />
                       {column.title}
-                      {taskDraft.columnId === column.id && <small>Hiện tại</small>}
+                      {isCurrentColumn && <small>Hiện tại</small>}
                     </span>
-                    <input
-                      aria-label={`Ngày hết hạn cột ${column.title}`}
-                      onChange={(event) =>
-                        setTaskDraft((current) => ({
-                          ...current,
-                          columnDueDates: {
-                            ...current.columnDueDates,
-                            [column.id]: event.target.value,
-                          },
-                        }))
-                      }
-                      type="date"
-                      value={taskDraft.columnDueDates[column.id] || ""}
-                    />
+                    <div className="column-date-pair">
+                      {shouldShowPlannedDate && (
+                        <label>
+                          <small>Dự kiến</small>
+                          <DateField
+                            ariaLabel={`Ngày dự kiến cột ${column.title}`}
+                            onChange={(value) =>
+                              setTaskDraft((current) => ({
+                                ...current,
+                                columnDueDates: {
+                                  ...current.columnDueDates,
+                                  [column.id]: value,
+                                },
+                              }))
+                            }
+                            value={taskDraft.columnDueDates[column.id] || ""}
+                          />
+                        </label>
+                      )}
+                      <label>
+                        <small>Thực tế</small>
+                        <DateField
+                          ariaLabel={`Ngày thực tế cột ${column.title}`}
+                          onChange={(value) =>
+                            setTaskDraft((current) => ({
+                              ...current,
+                              columnActualDates: {
+                                ...current.columnActualDates,
+                                [column.id]: value,
+                              },
+                            }))
+                          }
+                          value={taskDraft.columnActualDates[column.id] || ""}
+                        />
+                      </label>
+                    </div>
                     {deadlineInfo && (
                       <small className={deadlineInfo.isOverdue ? "overdue" : ""}>
                         {deadlineInfo.label}

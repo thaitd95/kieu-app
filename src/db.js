@@ -1,7 +1,8 @@
 const DB_NAME = "taskflow-local-db";
 const DB_VERSION = 1;
 const STORE_NAME = "app-state";
-const DATA_KEY = "taskflow-board";
+const DATA_KEY = "taskflow-board-v4";
+const OBSOLETE_DATA_KEYS = ["taskflow-board", "taskflow-board-v2", "taskflow-board-v3"];
 const LEGACY_STORAGE_KEY = "taskflow-board-v1";
 
 let databasePromise;
@@ -56,6 +57,14 @@ export async function saveStoredData(value) {
   await waitForTransaction(transaction);
 }
 
+async function deleteStoredDataKeys(keys) {
+  const database = await openDatabase();
+  const transaction = database.transaction(STORE_NAME, "readwrite");
+  const store = transaction.objectStore(STORE_NAME);
+  keys.forEach((key) => store.delete(key));
+  await waitForTransaction(transaction);
+}
+
 export async function loadInitialData(fallbackData) {
   const storedData = await loadStoredData();
   if (storedData) return storedData;
@@ -71,6 +80,7 @@ export async function loadInitialData(fallbackData) {
   }
 
   await saveStoredData(initialValue);
+  await deleteStoredDataKeys(OBSOLETE_DATA_KEYS);
 
   if (legacyValue) {
     try {

@@ -102,10 +102,8 @@ export default function BoardToolbar({
           onChange={setSelectedPriority}
           options={[
             { value: "", label: "Tất cả mức" },
+            { value: "high", label: "Cao", color: "#c9372c" },
             { value: "low", label: "Thấp", color: "#0c66e4" },
-            { value: "medium", label: "Trung bình", color: "#7f5f01" },
-            { value: "high", label: "Cao", color: "#e06c00" },
-            { value: "highest", label: "Cao nhất", color: "#c9372c" },
           ]}
           value={selectedPriority}
         />

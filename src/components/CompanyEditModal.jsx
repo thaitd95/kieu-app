@@ -1,7 +1,14 @@
+import { useEffect, useState } from "react";
 import { Icon } from "./Common";
 import { RichTextEditor } from "./RichText";
 
 export default function CompanyEditModal({ companyDraft, saveCompany, setCompanyDraft }) {
+  const [isAccountUnlocked, setIsAccountUnlocked] = useState(false);
+
+  useEffect(() => {
+    setIsAccountUnlocked(!companyDraft?.id);
+  }, [companyDraft?.id]);
+
   if (!companyDraft) return null;
 
   const isEditing = Boolean(companyDraft.id);
@@ -26,11 +33,40 @@ export default function CompanyEditModal({ companyDraft, saveCompany, setCompany
           />
         </label>
         <label className="field">
-          <span>Địa chỉ</span>
+          <span>Số tài khoản</span>
+          <div className="locked-input">
+            <input
+              onChange={(event) => setCompanyDraft({ ...companyDraft, accountNumber: event.target.value })}
+              placeholder="Nhập số tài khoản"
+              readOnly={!isAccountUnlocked}
+              value={companyDraft.accountNumber}
+            />
+            {isEditing && (
+              <button
+                aria-label={isAccountUnlocked ? "Khóa số tài khoản" : "Mở khóa số tài khoản"}
+                onClick={() => setIsAccountUnlocked((current) => !current)}
+                title={isAccountUnlocked ? "Khóa số tài khoản" : "Mở khóa để chỉnh sửa"}
+                type="button"
+              >
+                <Icon name={isAccountUnlocked ? "unlock" : "lock"} size={15} />
+              </button>
+            )}
+          </div>
+        </label>
+        <label className="field">
+          <span>Địa chỉ office</span>
           <input
-            onChange={(event) => setCompanyDraft({ ...companyDraft, address: event.target.value })}
-            placeholder="Nhập địa chỉ Seller"
-            value={companyDraft.address}
+            onChange={(event) => setCompanyDraft({ ...companyDraft, officeAddress: event.target.value })}
+            placeholder="Nhập địa chỉ office"
+            value={companyDraft.officeAddress}
+          />
+        </label>
+        <label className="field">
+          <span>Địa chỉ producer</span>
+          <input
+            onChange={(event) => setCompanyDraft({ ...companyDraft, producerAddress: event.target.value })}
+            placeholder="Nhập địa chỉ producer"
+            value={companyDraft.producerAddress}
           />
         </label>
         <label className="field">

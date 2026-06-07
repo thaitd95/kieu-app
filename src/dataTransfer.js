@@ -1,8 +1,9 @@
-import { normalizeData } from "./model";
-import { workflowColumns } from "./workflow";
+import { normalizeData } from "./model.js";
+import { workflowColumns } from "./workflow.js";
 
 export const BACKUP_FORMAT = "kieu-assistant-backup";
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
+const SUPPORTED_BACKUP_VERSIONS = new Set([1, BACKUP_VERSION]);
 
 function normalizeName(value) {
   return String(value || "").trim().toLocaleLowerCase("vi");
@@ -100,7 +101,7 @@ export function mergeSystemBackup(currentData, backup) {
   if (
     !backup ||
     backup.format !== BACKUP_FORMAT ||
-    backup.version !== BACKUP_VERSION ||
+    !SUPPORTED_BACKUP_VERSIONS.has(backup.version) ||
     !backup.data ||
     typeof backup.data !== "object" ||
     Array.isArray(backup.data)

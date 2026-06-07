@@ -24,6 +24,9 @@ export function Icon({ name, size = 18, className = "" }) {
     sun: <path d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.4-6.4L17 7m-10 10-1.4 1.4m12.8 0L17 17M7 7 5.6 5.6M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" />,
     download: <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" />,
     upload: <path d="M12 15V3m0 0 4 4m-4-4L8 7M5 17v3h14v-3" />,
+    archive: <path d="M4 7h16M5 7l1.2-3h11.6L19 7v13H5V7Zm5 5h4" />,
+    lock: <path d="M7 10V7a5 5 0 0 1 10 0v3m-11 0h12a2 2 0 0 1 2 2v8H4v-8a2 2 0 0 1 2-2Zm6 4v3" />,
+    unlock: <path d="M7 10V7a5 5 0 0 1 9.5-2.2M6 10h12a2 2 0 0 1 2 2v8H4v-8a2 2 0 0 1 2-2Zm6 4v3" />,
   };
 
   return (
@@ -43,7 +46,6 @@ export function Icon({ name, size = 18, className = "" }) {
     </svg>
   );
 }
-
 export function Avatar({ name, size = "normal", index = 0 }) {
   const palettes = ["blue", "purple", "teal", "orange", "pink"];
   const initials = name
@@ -68,14 +70,4 @@ export function TypeIcon({ type }) {
   const selected = meta[type] || meta.task;
 
   return <span className={`type-icon ${selected.className}`}>{selected.symbol}</span>;
-}
-
-export function Priority({ value }) {
-  const symbols = { highest: "⬆", high: "↑", medium: "＝", low: "↓" };
-
-  return (
-    <span className={`priority priority-${value}`}>
-      <span>{symbols[value]}</span>
-    </span>
-  );
 }

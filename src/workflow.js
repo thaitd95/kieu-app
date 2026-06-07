@@ -1,4 +1,6 @@
 export const DEFAULT_WORKFLOW_COLUMN_ID = "po";
+export const COMPLETED_ARCHIVE_DAYS = 14;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 export const workflowColumns = [
   { id: "po", title: "PO", color: "#0c66e4" },
@@ -98,13 +100,157 @@ export function createWorkflowDueDates(currentDueDates = {}) {
   );
 }
 
-export function moveTaskToWorkflowColumn(task, columnId) {
+export function createWorkflowActualDates(currentActualDates = {}) {
+  return createWorkflowDueDates(currentActualDates);
+}
+
+export function createWorkflowStartedDates(currentStartedDates = {}) {
+  return createWorkflowDueDates(currentStartedDates);
+}
+
+export function getLocalDateString(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toUtcDay(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  const timestamp = Date.UTC(year, month - 1, day);
+  const parsed = new Date(timestamp);
+
+  return parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+    ? timestamp
+    : null;
+}
+
+function currentUtcDay(now) {
+  const currentDate = new Date(now);
+  return Date.UTC(
+    currentDate.getFullYear(),
+    currentDate.getMonth(),
+    currentDate.getDate(),
+  );
+}
+
+export function getCompletedArchiveInfo(task, now = new Date()) {
+  if (!task || task.columnId !== "completed") {
+    return { completedDate: "", isArchived: false, reason: "" };
+  }
+
+  const manualArchiveDate = /^\d{4}-\d{2}-\d{2}$/.test(task.completedArchivedAt || "")
+    ? task.completedArchivedAt
+    : "";
+  if (manualArchiveDate) {
+    return {
+      archivedAt: manualArchiveDate,
+      completedDate: task.columnActualDates?.completed || "",
+      isArchived: true,
+      reason: "manual",
+    };
+  }
+
+  const completedDate = task.columnActualDates?.completed || "";
+  const completedDay = toUtcDay(completedDate);
+  if (completedDay === null) {
+    return { completedDate, isArchived: false, reason: "" };
+  }
+
+  const daysSinceCompleted = Math.round((currentUtcDay(now) - completedDay) / DAY_IN_MS);
+  return {
+    completedDate,
+    daysSinceCompleted,
+    isArchived: daysSinceCompleted >= COMPLETED_ARCHIVE_DAYS,
+    reason: daysSinceCompleted >= COMPLETED_ARCHIVE_DAYS ? "auto" : "",
+  };
+}
+
+export function isTaskInCompletedArchive(task, now = new Date()) {
+  return getCompletedArchiveInfo(task, now).isArchived;
+}
+
+export function archiveCompletedTask(task, now = new Date()) {
+  if (task?.columnId !== "completed") return task;
+
+  const archiveDate = getLocalDateString(now);
+  const columnActualDates = createWorkflowActualDates(task.columnActualDates);
+  if (!columnActualDates.completed) columnActualDates.completed = archiveDate;
+
+  return {
+    ...task,
+    columnActualDates,
+    completedArchivedAt: archiveDate,
+  };
+}
+
+export function getRequiredObjectiveProgress(task) {
+  const requiredObjectives = (task?.objectives || []).filter((objective) => !objective.optional);
+  const completedRequiredObjectives = requiredObjectives.filter((objective) => objective.completed);
+
+  return {
+    completed: completedRequiredObjectives.length,
+    isComplete: completedRequiredObjectives.length === requiredObjectives.length,
+    total: requiredObjectives.length,
+  };
+}
+
+export function canMoveTaskToWorkflowColumn(task, columnId, options = {}) {
+  if (!task) return false;
+
+  const nextColumnId = resolveWorkflowColumnId(columnId);
+  if (task.columnId === nextColumnId) return true;
+
+  const currentIndex = workflowColumns.findIndex((column) => column.id === task.columnId);
+  const nextIndex = workflowColumns.findIndex((column) => column.id === nextColumnId);
+  const isMovingForward = nextIndex > currentIndex && currentIndex >= 0;
+  const canBypassForNewCompletedTask =
+    options.isNewTask === true && nextColumnId === "completed";
+
+  if (!isMovingForward || canBypassForNewCompletedTask) return true;
+  return getRequiredObjectiveProgress(task).isComplete;
+}
+
+export function getWorkflowMoveBlockReason(task, columnId, options = {}) {
+  if (!task) return "Không tìm thấy công việc cần chuyển trạng thái.";
+  if (canMoveTaskToWorkflowColumn(task, columnId, options)) return "";
+
+  const progress = getRequiredObjectiveProgress(task);
+  return `Cần hoàn thành tất cả chỉ tiêu bắt buộc của trạng thái hiện tại trước khi chuyển trạng thái (${progress.completed}/${progress.total}).`;
+}
+
+export function moveTaskToWorkflowColumn(task, columnId, options = {}) {
   const nextColumnId = resolveWorkflowColumnId(columnId);
   if (task.columnId === nextColumnId) return task;
+
+  const currentIndex = workflowColumns.findIndex((column) => column.id === task.columnId);
+  const nextIndex = workflowColumns.findIndex((column) => column.id === nextColumnId);
+  const transitionDate = getLocalDateString(options.now);
+  const shouldRecordCompletion =
+    options.recordCompletion !== false && nextIndex > currentIndex && currentIndex >= 0;
+  const columnActualDates = createWorkflowActualDates(task.columnActualDates);
+  const columnStartedDates = createWorkflowStartedDates(task.columnStartedDates);
+
+  if (shouldRecordCompletion) {
+    columnActualDates[task.columnId] = transitionDate;
+  }
+  if (nextColumnId === "completed" && !columnActualDates.completed) {
+    columnActualDates.completed = transitionDate;
+  }
+  columnStartedDates[nextColumnId] = transitionDate;
 
   return {
     ...task,
     columnId: nextColumnId,
+    columnActualDates,
+    columnStartedDates,
+    completedArchivedAt: nextColumnId === "completed" ? task.completedArchivedAt || "" : "",
     objectives: createWorkflowObjectives(nextColumnId),
   };
 }
