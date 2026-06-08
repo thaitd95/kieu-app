@@ -42,27 +42,11 @@ export function Sidebar({ activeView, currentUser, members, setActiveView, setTh
   );
 }
 
-export function Topbar({ currentUser, members, onExportData, onImportData, onSignOut, search, setSearch }) {
+export function Topbar({ currentUser, members, onSignOut, search, setSearch }) {
   return (
     <header className="topbar">
       <div className="breadcrumbs"><span>Dự án</span><Icon name="chevron" size={14} /><strong>KieuAssistant</strong></div>
       <div className="topbar-actions">
-        <div className="topbar-data-actions">
-          <button className="topbar-data-button" onClick={onExportData} type="button"><Icon name="download" size={15} />Xuất dữ liệu</button>
-          <label className="topbar-data-button">
-            <Icon name="upload" size={15} />Nhập dữ liệu
-            <input
-              accept="application/json,.json"
-              className="visually-hidden"
-              onChange={(event) => {
-                const [file] = event.target.files;
-                if (file) onImportData(file);
-                event.target.value = "";
-              }}
-              type="file"
-            />
-          </label>
-        </div>
         <label className="search-box"><Icon name="search" size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm kiếm" /></label>
         <button className="icon-button"><Icon name="grid" size={18} /></button>
         <button className="icon-button has-notification"><Icon name="comment" size={18} /></button>

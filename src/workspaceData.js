@@ -66,55 +66,37 @@ function mapLabel(row) {
   };
 }
 
-export async function loadWorkspaceData(workspaceId) {
-  const [
-    membersResult,
-    companiesResult,
-    chemicalsResult,
-    labelsResult,
-    columnsResult,
-    tasksResult,
-    taskChemicalsResult,
-    taskLabelsResult,
-    stepsResult,
-    objectivesResult,
-    commentsResult,
-  ] = await Promise.all([
-    supabase.from("workspace_members").select("*").eq("workspace_id", workspaceId).order("created_at"),
-    supabase.from("companies").select("*").eq("workspace_id", workspaceId).order("created_at"),
-    supabase.from("chemicals").select("*").eq("workspace_id", workspaceId).order("created_at"),
-    supabase.from("labels").select("*").eq("workspace_id", workspaceId).order("created_at"),
-    supabase.from("workflow_columns").select("*").eq("workspace_id", workspaceId).order("position"),
-    supabase.from("tasks").select("*").eq("workspace_id", workspaceId).order("created_at"),
-    supabase.from("task_chemicals").select("*").eq("workspace_id", workspaceId),
-    supabase.from("task_labels").select("*").eq("workspace_id", workspaceId),
-    supabase.from("task_workflow_steps").select("*").eq("workspace_id", workspaceId),
-    supabase
-      .from("task_objectives")
-      .select("*")
-      .eq("workspace_id", workspaceId)
-      .order("position"),
-    supabase
-      .from("task_comments")
-      .select("*")
-      .eq("workspace_id", workspaceId)
-      .order("created_at"),
-  ]);
+function mapMember(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.display_name,
+    role: row.role,
+  };
+}
 
-  const memberRows = assertResult(membersResult);
-  const companyRows = assertResult(companiesResult);
-  const chemicalRows = assertResult(chemicalsResult);
-  const labelRows = assertResult(labelsResult);
-  const columnRows = assertResult(columnsResult);
-  const taskRows = assertResult(tasksResult);
-  const taskChemicalRows = assertResult(taskChemicalsResult);
-  const taskLabelRows = assertResult(taskLabelsResult);
-  const stepRows = assertResult(stepsResult);
-  const objectiveRows = assertResult(objectivesResult);
-  const commentRows = assertResult(commentsResult);
+function createMemberNameMap(members = []) {
+  return new Map(
+    members
+      .map((member) => [member.id, member.display_name || member.name || ""])
+      .filter(([, name]) => name),
+  );
+}
 
-  const memberNames = new Map(memberRows.map((member) => [member.id, member.display_name]));
-  const labelNames = new Map(labelRows.map((label) => [label.id, label.name]));
+function createLabelNameMap(labels = []) {
+  return new Map(labels.map((label) => [label.id, label.name]));
+}
+
+function mapTasks(taskRows, relationRows, memberSource, labelSource) {
+  const {
+    taskChemicalRows,
+    taskLabelRows,
+    stepRows,
+    objectiveRows,
+    commentRows,
+  } = relationRows;
+  const memberNames = createMemberNameMap(memberSource);
+  const labelNames = createLabelNameMap(labelSource);
   const taskChemicals = new Map();
   const taskLabels = new Map();
   const taskSteps = new Map();
@@ -165,15 +147,96 @@ export async function loadWorkspaceData(workspaceId) {
     taskComments.set(row.task_id, values);
   });
 
+  return taskRows.map((task) => {
+    const steps = taskSteps.get(task.id) || {};
+
+    return {
+      id: task.id,
+      legacyId: task.legacy_id || "",
+      key: task.task_key,
+      createdAt: task.created_on || "",
+      title: task.title,
+      description: task.description_html,
+      type: task.task_type,
+      priority: task.priority,
+      assignee: memberNames.get(task.assignee_member_id) || "",
+      poNumber: task.po_number,
+      quantity: task.quantity_text,
+      amount: task.amount_text,
+      ex: task.incoterm,
+      paymentMethod: task.payment_method,
+      shippingMethod: task.shipping_method,
+      companyId: task.company_id || "",
+      chemicals: taskChemicals.get(task.id) || [],
+      labels: taskLabels.get(task.id) || [],
+      columnId: task.current_column_code,
+      columnDueDates: createWorkflowDueDates(
+        Object.fromEntries(Object.entries(steps).map(([code, step]) => [code, step.due_on || ""])),
+      ),
+      columnActualDates: createWorkflowActualDates(
+        Object.fromEntries(Object.entries(steps).map(([code, step]) => [code, step.actual_on || ""])),
+      ),
+      columnStartedDates: createWorkflowStartedDates(
+        Object.fromEntries(Object.entries(steps).map(([code, step]) => [code, step.started_on || ""])),
+      ),
+      completedArchivedAt: task.completed_archived_on || "",
+      objectives: taskObjectives.get(task.id) || [],
+      comments: taskComments.get(task.id) || [],
+    };
+  });
+}
+
+export async function loadWorkspaceData(workspaceId) {
+  const [
+    membersResult,
+    companiesResult,
+    chemicalsResult,
+    labelsResult,
+    columnsResult,
+    tasksResult,
+    taskChemicalsResult,
+    taskLabelsResult,
+    stepsResult,
+    objectivesResult,
+    commentsResult,
+  ] = await Promise.all([
+    supabase.from("workspace_members").select("*").eq("workspace_id", workspaceId).order("created_at"),
+    supabase.from("companies").select("*").eq("workspace_id", workspaceId).order("created_at"),
+    supabase.from("chemicals").select("*").eq("workspace_id", workspaceId).order("created_at"),
+    supabase.from("labels").select("*").eq("workspace_id", workspaceId).order("created_at"),
+    supabase.from("workflow_columns").select("*").eq("workspace_id", workspaceId).order("position"),
+    supabase.from("tasks").select("*").eq("workspace_id", workspaceId).order("created_at"),
+    supabase.from("task_chemicals").select("*").eq("workspace_id", workspaceId),
+    supabase.from("task_labels").select("*").eq("workspace_id", workspaceId),
+    supabase.from("task_workflow_steps").select("*").eq("workspace_id", workspaceId),
+    supabase
+      .from("task_objectives")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("position"),
+    supabase
+      .from("task_comments")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("created_at"),
+  ]);
+
+  const memberRows = assertResult(membersResult);
+  const companyRows = assertResult(companiesResult);
+  const chemicalRows = assertResult(chemicalsResult);
+  const labelRows = assertResult(labelsResult);
+  const columnRows = assertResult(columnsResult);
+  const taskRows = assertResult(tasksResult);
+  const taskChemicalRows = assertResult(taskChemicalsResult);
+  const taskLabelRows = assertResult(taskLabelsResult);
+  const stepRows = assertResult(stepsResult);
+  const objectiveRows = assertResult(objectivesResult);
+  const commentRows = assertResult(commentsResult);
+
   return {
     memberListVersion: 2,
     members: memberRows.map((member) => member.display_name),
-    memberRecords: memberRows.map((member) => ({
-      id: member.id,
-      userId: member.user_id,
-      name: member.display_name,
-      role: member.role,
-    })),
+    memberRecords: memberRows.map(mapMember),
     companies: companyRows.map(mapCompany),
     chemicals: chemicalRows.map(mapChemical),
     labels: labelRows.map(mapLabel),
@@ -182,44 +245,70 @@ export async function loadWorkspaceData(workspaceId) {
       title: column.title,
       color: column.color,
     })),
-    tasks: taskRows.map((task) => {
-      const steps = taskSteps.get(task.id) || {};
-
-      return {
-        id: task.id,
-        legacyId: task.legacy_id || "",
-        key: task.task_key,
-        createdAt: task.created_on || "",
-        title: task.title,
-        description: task.description_html,
-        type: task.task_type,
-        priority: task.priority,
-        assignee: memberNames.get(task.assignee_member_id) || "",
-        poNumber: task.po_number,
-        quantity: task.quantity_text,
-        amount: task.amount_text,
-        ex: task.incoterm,
-        paymentMethod: task.payment_method,
-        shippingMethod: task.shipping_method,
-        companyId: task.company_id || "",
-        chemicals: taskChemicals.get(task.id) || [],
-        labels: taskLabels.get(task.id) || [],
-        columnId: task.current_column_code,
-        columnDueDates: createWorkflowDueDates(
-          Object.fromEntries(Object.entries(steps).map(([code, step]) => [code, step.due_on || ""])),
-        ),
-        columnActualDates: createWorkflowActualDates(
-          Object.fromEntries(Object.entries(steps).map(([code, step]) => [code, step.actual_on || ""])),
-        ),
-        columnStartedDates: createWorkflowStartedDates(
-          Object.fromEntries(Object.entries(steps).map(([code, step]) => [code, step.started_on || ""])),
-        ),
-        completedArchivedAt: task.completed_archived_on || "",
-        objectives: taskObjectives.get(task.id) || [],
-        comments: taskComments.get(task.id) || [],
-      };
-    }),
+    tasks: mapTasks(
+      taskRows,
+      { taskChemicalRows, taskLabelRows, stepRows, objectiveRows, commentRows },
+      memberRows,
+      labelRows,
+    ),
   };
+}
+
+export async function loadWorkspaceTasks(workspaceId, dataContext) {
+  const [
+    tasksResult,
+    taskChemicalsResult,
+    taskLabelsResult,
+    stepsResult,
+    objectivesResult,
+    commentsResult,
+  ] = await Promise.all([
+    supabase.from("tasks").select("*").eq("workspace_id", workspaceId).order("created_at"),
+    supabase.from("task_chemicals").select("*").eq("workspace_id", workspaceId),
+    supabase.from("task_labels").select("*").eq("workspace_id", workspaceId),
+    supabase.from("task_workflow_steps").select("*").eq("workspace_id", workspaceId),
+    supabase
+      .from("task_objectives")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("position"),
+    supabase
+      .from("task_comments")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("created_at"),
+  ]);
+
+  return mapTasks(
+    assertResult(tasksResult),
+    {
+      taskChemicalRows: assertResult(taskChemicalsResult),
+      taskLabelRows: assertResult(taskLabelsResult),
+      stepRows: assertResult(stepsResult),
+      objectiveRows: assertResult(objectivesResult),
+      commentRows: assertResult(commentsResult),
+    },
+    dataContext?.memberRecords || [],
+    dataContext?.labels || [],
+  );
+}
+
+export async function loadWorkspaceCompanies(workspaceId) {
+  return assertResult(
+    await supabase.from("companies").select("*").eq("workspace_id", workspaceId).order("created_at"),
+  ).map(mapCompany);
+}
+
+export async function loadWorkspaceChemicals(workspaceId) {
+  return assertResult(
+    await supabase.from("chemicals").select("*").eq("workspace_id", workspaceId).order("created_at"),
+  ).map(mapChemical);
+}
+
+export async function loadWorkspaceLabels(workspaceId) {
+  return assertResult(
+    await supabase.from("labels").select("*").eq("workspace_id", workspaceId).order("created_at"),
+  ).map(mapLabel);
 }
 
 export async function saveWorkspaceMember(workspaceId, name) {
@@ -590,33 +679,6 @@ export async function replaceWorkspaceData(workspaceId, rawData, user) {
       .update({ data_initialized: true })
       .eq("id", workspaceId),
   );
-
-  return loadWorkspaceData(workspaceId);
-}
-
-export async function mergeWorkspaceData(workspaceId, rawData, user) {
-  const prepared = prepareImportData(rawData, user);
-  const current = await loadWorkspaceData(workspaceId);
-  const memberRecords = [...current.memberRecords];
-
-  for (const name of prepared.members) {
-    if (memberRecords.some((member) => member.name === name)) continue;
-    memberRecords.push(await saveWorkspaceMember(workspaceId, name));
-  }
-
-  const data = { ...prepared, memberRecords };
-  for (const company of data.companies) {
-    await saveCompanyRecord(workspaceId, company);
-  }
-  for (const chemical of data.chemicals) {
-    await saveChemicalRecord(workspaceId, chemical);
-  }
-  for (const label of data.labels) {
-    await saveLabelRecord(workspaceId, label);
-  }
-  for (const task of data.tasks) {
-    await saveTaskRecord(workspaceId, data, task);
-  }
 
   return loadWorkspaceData(workspaceId);
 }

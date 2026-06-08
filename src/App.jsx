@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AuthScreen from "./components/AuthScreen";
 import BoardToolbar from "./components/BoardToolbar";
 import ChemicalManagement from "./components/ChemicalManagement";
@@ -11,7 +11,6 @@ import TaskBoard, { CompletedArchiveSection } from "./components/TaskBoard";
 import TaskModal from "./components/TaskModal";
 import { chemicalColors, columnColors, currentUser as defaultCurrentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, initialData, labelColors } from "./data";
 import { loadInitialData } from "./db";
-import { createSystemBackup, mergeSystemBackup } from "./dataTransfer";
 import { getTaskPriority } from "./deadline";
 import { normalizePaymentMethod, normalizeShippingMethod, paymentMethods, shippingMethods } from "./reportData";
 import { sanitizeRichText, stripRichText } from "./richText";
@@ -22,8 +21,11 @@ import {
   deleteCompanyRecord,
   deleteLabelRecord,
   deleteTaskRecord,
+  loadWorkspaceChemicals,
+  loadWorkspaceCompanies,
   loadWorkspaceData,
-  mergeWorkspaceData,
+  loadWorkspaceLabels,
+  loadWorkspaceTasks,
   removeWorkspaceMember,
   replaceWorkspaceData,
   saveChemicalRecord,
@@ -42,6 +44,8 @@ function App() {
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [isDataReady, setIsDataReady] = useState(false);
   const [storageError, setStorageError] = useState("");
+  const [refreshError, setRefreshError] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [activeView, setActiveView] = useState("board");
   const [selectedTaskId, setSelectedTaskId] = useState(null);
@@ -61,6 +65,9 @@ function App() {
   const [editingCompanyDraft, setEditingCompanyDraft] = useState(null);
   const [exportingReportType, setExportingReportType] = useState("");
   const [theme, setTheme] = useState(() => localStorage.getItem("kieu-assistant-theme") || "light");
+  const previousViewRef = useRef(activeView);
+  const refreshRequestRef = useRef(0);
+  const dataRef = useRef(data);
 
   useEffect(() => {
     if (!supabase) return;
@@ -138,6 +145,76 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  useEffect(() => {
+    if (previousViewRef.current === activeView) return;
+    previousViewRef.current = activeView;
+    if (!workspace?.id || !isDataReady) return;
+    if (activeView === "reports") {
+      refreshRequestRef.current += 1;
+      setIsRefreshing(false);
+      setRefreshError("");
+      return;
+    }
+
+    const currentData = dataRef.current;
+    if (!currentData) return;
+
+    const refreshByView = {
+      board: () =>
+        loadWorkspaceTasks(workspace.id, currentData).then((tasks) => (current) => ({
+          ...current,
+          tasks,
+        })),
+      completedArchive: () =>
+        loadWorkspaceTasks(workspace.id, currentData).then((tasks) => (current) => ({
+          ...current,
+          tasks,
+        })),
+      chemicals: () =>
+        loadWorkspaceChemicals(workspace.id).then((chemicals) => (current) => ({
+          ...current,
+          chemicals,
+        })),
+      companies: () =>
+        loadWorkspaceCompanies(workspace.id).then((companies) => (current) => ({
+          ...current,
+          companies,
+        })),
+      labels: () =>
+        loadWorkspaceLabels(workspace.id).then((labels) => (current) => ({
+          ...current,
+          labels,
+        })),
+    };
+
+    const refreshActiveView = refreshByView[activeView];
+    if (!refreshActiveView) return;
+
+    const requestId = refreshRequestRef.current + 1;
+    refreshRequestRef.current = requestId;
+    setIsRefreshing(true);
+    setRefreshError("");
+
+    refreshActiveView()
+      .then((applyRefresh) => {
+        if (refreshRequestRef.current === requestId) {
+          setData((current) => (current ? applyRefresh(current) : current));
+        }
+      })
+      .catch((error) => {
+        if (refreshRequestRef.current === requestId) {
+          setRefreshError(`Không thể đồng bộ dữ liệu Supabase. ${error.message}`);
+        }
+      })
+      .finally(() => {
+        if (refreshRequestRef.current === requestId) setIsRefreshing(false);
+      });
+  }, [activeView, isDataReady, workspace?.id]);
+
+  useEffect(() => {
     const timerId = window.setInterval(() => setCurrentTime(Date.now()), 60 * 1000);
     return () => window.clearInterval(timerId);
   }, []);
@@ -201,7 +278,12 @@ function App() {
       return <div className="storage-state storage-state-error">{supabaseConfigError}</div>;
     }
 
-    return <div className="storage-state">Đang kiểm tra đăng nhập...</div>;
+    return (
+      <div className="storage-state">
+        <span className="loading-spinner loading-spinner-large" />
+        <span>Đang kiểm tra đăng nhập...</span>
+      </div>
+    );
   }
 
   if (!session) {
@@ -213,7 +295,12 @@ function App() {
   }
 
   if (!workspace || !isDataReady || !data) {
-    return <div className="storage-state">Đang tải dữ liệu...</div>;
+    return (
+      <div className="storage-state">
+        <span className="loading-spinner loading-spinner-large" />
+        <span>Đang tải dữ liệu...</span>
+      </div>
+    );
   }
 
   async function handleSignOut() {
@@ -718,33 +805,6 @@ function App() {
     }
   }
 
-  function exportData() {
-    const backup = createSystemBackup(data);
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `kieu-assistant-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  }
-
-  async function importData(file) {
-    try {
-      const backup = JSON.parse(await file.text());
-      const result = mergeSystemBackup(data, backup);
-      const summary = result.summary;
-
-      const importedData = await mergeWorkspaceData(workspace.id, result.data, session.user);
-      setData(importedData);
-      window.alert(
-        `Đã nhập dữ liệu mới: ${summary.tasks} công việc, ${summary.companies} Seller, ${summary.chemicals} hóa chất, ${summary.labels} nhãn, ${summary.columns} cột và ${summary.members} người phụ trách. Bỏ qua ${summary.skippedTasks} công việc đã tồn tại.`,
-      );
-    } catch (error) {
-      window.alert(`Không thể nhập dữ liệu. ${error.message}`);
-    }
-  }
-
   async function exportReport(type) {
     setExportingReportType(type);
     try {
@@ -760,8 +820,18 @@ function App() {
   return (
     <div className="app-shell">
       <Sidebar activeView={activeView} currentUser={currentUser} members={members} setActiveView={setActiveView} setTheme={setTheme} theme={theme} />
-      <main className="main-content">
-        <Topbar currentUser={currentUser} members={members} onExportData={exportData} onImportData={importData} onSignOut={handleSignOut} search={search} setSearch={setSearch} />
+      <main className={`main-content ${isRefreshing && !refreshError ? "main-content-refreshing" : ""}`}>
+        <Topbar currentUser={currentUser} members={members} onSignOut={handleSignOut} search={search} setSearch={setSearch} />
+        {isRefreshing && !refreshError && (
+          <div aria-label="Đang đồng bộ dữ liệu từ Supabase" className="sync-status" role="status">
+            <span className="loading-spinner sync-spinner" />
+          </div>
+        )}
+        {refreshError && (
+          <div className="sync-status sync-status-error">
+            {refreshError}
+          </div>
+        )}
         {activeView === "board" ? (
           <>
             <BoardHeader startNewTask={startNewTask} />
