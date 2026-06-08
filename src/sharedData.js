@@ -2,7 +2,7 @@ import { normalizeData } from "./model.js";
 import {
   createWorkflowActualDates,
   createWorkflowDueDates,
-  createWorkflowStartedDates,
+  createWorkflowObjectiveMap,
   workflowColumns,
 } from "./workflow.js";
 import { getAuthDisplayName, supabase } from "./utils/supabase.js";
@@ -94,6 +94,36 @@ function createLabelNameMap(labels = []) {
   return new Map(labels.map((label) => [label.id, label.name]));
 }
 
+function createTaskObjectiveMap(objectiveRows = []) {
+  return new Map(
+    objectiveRows.map((row) => [
+      row.task_id,
+      row.objectives && typeof row.objectives === "object" ? row.objectives : {},
+    ]),
+  );
+}
+
+function createTaskWorkflowStepMap(stepRows = []) {
+  return new Map(
+    stepRows.map((row) => [
+      row.task_id,
+      row.steps && typeof row.steps === "object" ? row.steps : {},
+    ]),
+  );
+}
+
+function createWorkflowStepPayload(task) {
+  return Object.fromEntries(
+    workflowColumns.map((column) => [
+      column.id,
+      {
+        due_on: task.columnDueDates?.[column.id] || "",
+        actual_on: task.columnActualDates?.[column.id] || "",
+      },
+    ]),
+  );
+}
+
 function mapTasks(taskRows, relationRows, memberSource, labelSource) {
   const {
     taskChemicalRows,
@@ -106,8 +136,8 @@ function mapTasks(taskRows, relationRows, memberSource, labelSource) {
   const labelNames = createLabelNameMap(labelSource);
   const taskChemicals = new Map();
   const taskLabels = new Map();
-  const taskSteps = new Map();
-  const taskObjectives = new Map();
+  const taskSteps = createTaskWorkflowStepMap(stepRows);
+  const taskObjectiveRows = createTaskObjectiveMap(objectiveRows);
   const taskComments = new Map();
 
   taskChemicalRows.forEach((row) => {
@@ -123,25 +153,6 @@ function mapTasks(taskRows, relationRows, memberSource, labelSource) {
     taskLabels.set(row.task_id, values);
   });
 
-  stepRows.forEach((row) => {
-    const values = taskSteps.get(row.task_id) || {};
-    values[row.column_code] = row;
-    taskSteps.set(row.task_id, values);
-  });
-
-  objectiveRows.forEach((row) => {
-    const values = taskObjectives.get(row.task_id) || [];
-    values.push({
-      id: row.objective_code,
-      text: row.text,
-      optional: row.is_optional,
-      commentable: row.is_commentable,
-      completed: row.is_completed,
-      comment: row.comment,
-    });
-    taskObjectives.set(row.task_id, values);
-  });
-
   commentRows.forEach((row) => {
     const values = taskComments.get(row.task_id) || [];
     values.push({
@@ -155,6 +166,11 @@ function mapTasks(taskRows, relationRows, memberSource, labelSource) {
 
   return taskRows.map((task) => {
     const steps = taskSteps.get(task.id) || {};
+    const objectivesByColumn = createWorkflowObjectiveMap(
+      task.current_column_code,
+      [],
+      taskObjectiveRows.get(task.id),
+    );
 
     return {
       id: task.id,
@@ -162,8 +178,6 @@ function mapTasks(taskRows, relationRows, memberSource, labelSource) {
       createdAt: formatDateOnly(task.created_at),
       title: task.title,
       description: task.description_html,
-      type: task.task_type,
-      priority: task.priority,
       assignee: memberNames.get(task.assignee_member_id) || "",
       poNumber: task.po_number,
       quantity: task.quantity_text,
@@ -181,11 +195,9 @@ function mapTasks(taskRows, relationRows, memberSource, labelSource) {
       columnActualDates: createWorkflowActualDates(
         Object.fromEntries(Object.entries(steps).map(([code, step]) => [code, step.actual_on || ""])),
       ),
-      columnStartedDates: createWorkflowStartedDates(
-        Object.fromEntries(Object.entries(steps).map(([code, step]) => [code, step.started_on || ""])),
-      ),
       completedArchivedAt: task.completed_archived_on || "",
-      objectives: taskObjectives.get(task.id) || [],
+      objectives: objectivesByColumn[task.current_column_code] || [],
+      objectivesByColumn,
       comments: taskComments.get(task.id) || [],
     };
   });
@@ -214,10 +226,7 @@ export async function loadSharedData() {
     supabase.from("task_chemicals").select("*"),
     supabase.from("task_labels").select("*"),
     supabase.from("task_workflow_steps").select("*"),
-    supabase
-      .from("task_objectives")
-      .select("*")
-      .order("position"),
+    supabase.from("task_objectives").select("*"),
     supabase
       .from("task_comments")
       .select("*")
@@ -270,10 +279,7 @@ export async function loadSharedTasks(dataContext) {
     supabase.from("task_chemicals").select("*"),
     supabase.from("task_labels").select("*"),
     supabase.from("task_workflow_steps").select("*"),
-    supabase
-      .from("task_objectives")
-      .select("*")
-      .order("position"),
+    supabase.from("task_objectives").select("*"),
     supabase
       .from("task_comments")
       .select("*")
@@ -427,7 +433,17 @@ function getLabelId(data, name) {
 
 export async function saveTaskRecord(data, task) {
   const id = isUuid(task.id) ? task.id : createId();
-  const savedTask = { ...task, id };
+  const objectivesByColumn = createWorkflowObjectiveMap(
+    task.columnId,
+    task.objectives,
+    task.objectivesByColumn,
+  );
+  const savedTask = {
+    ...task,
+    id,
+    objectives: objectivesByColumn[task.columnId] || [],
+    objectivesByColumn,
+  };
 
   assertResult(
     await supabase.from("tasks").upsert({
@@ -436,8 +452,6 @@ export async function saveTaskRecord(data, task) {
       created_at: toCreatedAtTimestamp(task.createdAt),
       title: task.title,
       description_html: task.description,
-      task_type: task.type || "task",
-      priority: task.priority,
       assignee_member_id: getMemberId(data, task.assignee),
       po_number: task.poNumber,
       quantity_text: task.quantity,
@@ -454,8 +468,6 @@ export async function saveTaskRecord(data, task) {
   const childTables = [
     "task_chemicals",
     "task_labels",
-    "task_workflow_steps",
-    "task_objectives",
     "task_comments",
   ];
   const deleteResults = await Promise.all(
@@ -490,34 +502,28 @@ export async function saveTaskRecord(data, task) {
   }
 
   inserts.push(
-    supabase.from("task_workflow_steps").insert(
-      workflowColumns.map((column) => ({
-        task_id: id,
-        column_code: column.id,
-        due_on: task.columnDueDates?.[column.id] || null,
-        started_on: task.columnStartedDates?.[column.id] || null,
-        actual_on: task.columnActualDates?.[column.id] || null,
-      })),
-    ),
+    supabase
+      .from("task_workflow_steps")
+      .upsert(
+        {
+          task_id: id,
+          steps: createWorkflowStepPayload(task),
+        },
+        { onConflict: "task_id" },
+      ),
   );
 
-  if (task.objectives.length) {
-    inserts.push(
-      supabase.from("task_objectives").insert(
-        task.objectives.map((objective, position) => ({
+  inserts.push(
+    supabase
+      .from("task_objectives")
+      .upsert(
+        {
           task_id: id,
-          column_code: task.columnId,
-          objective_code: objective.id,
-          text: objective.text,
-          is_optional: Boolean(objective.optional),
-          is_commentable: Boolean(objective.commentable),
-          is_completed: Boolean(objective.completed),
-          comment: objective.comment || "",
-          position,
-        })),
+          objectives: objectivesByColumn,
+        },
+        { onConflict: "task_id" },
       ),
-    );
-  }
+  );
 
   if (task.comments.length) {
     inserts.push(

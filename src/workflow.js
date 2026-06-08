@@ -82,11 +82,40 @@ export function createWorkflowObjectives(columnId, currentObjectives = []) {
     );
 
     return {
-      ...template,
+      id: template.id,
+      text: template.text,
+      optional: Boolean(template.optional),
+      commentable: Boolean(template.commentable),
       completed: Boolean(existing?.completed),
       comment: template.commentable ? String(existing?.comment || "") : "",
     };
   });
+}
+
+export function createWorkflowObjectiveMap(
+  columnId = DEFAULT_WORKFLOW_COLUMN_ID,
+  currentObjectives = [],
+  currentObjectiveMap = {},
+) {
+  const resolvedColumnId = resolveWorkflowColumnId(columnId);
+  const objectiveMap = Object.fromEntries(
+    workflowColumns.map((column) => [
+      column.id,
+      createWorkflowObjectives(
+        column.id,
+        Array.isArray(currentObjectiveMap?.[column.id]) ? currentObjectiveMap[column.id] : [],
+      ),
+    ]),
+  );
+
+  objectiveMap[resolvedColumnId] = createWorkflowObjectives(
+    resolvedColumnId,
+    Array.isArray(currentObjectives) && currentObjectives.length
+      ? currentObjectives
+      : objectiveMap[resolvedColumnId],
+  );
+
+  return objectiveMap;
 }
 
 export function createWorkflowDueDates(currentDueDates = {}) {
@@ -102,10 +131,6 @@ export function createWorkflowDueDates(currentDueDates = {}) {
 
 export function createWorkflowActualDates(currentActualDates = {}) {
   return createWorkflowDueDates(currentActualDates);
-}
-
-export function createWorkflowStartedDates(currentStartedDates = {}) {
-  return createWorkflowDueDates(currentStartedDates);
 }
 
 export function getLocalDateString(value = new Date()) {
@@ -235,7 +260,6 @@ export function moveTaskToWorkflowColumn(task, columnId, options = {}) {
   const shouldRecordCompletion =
     options.recordCompletion !== false && nextIndex > currentIndex && currentIndex >= 0;
   const columnActualDates = createWorkflowActualDates(task.columnActualDates);
-  const columnStartedDates = createWorkflowStartedDates(task.columnStartedDates);
 
   if (shouldRecordCompletion) {
     columnActualDates[task.columnId] = transitionDate;
@@ -243,14 +267,23 @@ export function moveTaskToWorkflowColumn(task, columnId, options = {}) {
   if (nextColumnId === "completed" && !columnActualDates.completed) {
     columnActualDates.completed = transitionDate;
   }
-  columnStartedDates[nextColumnId] = transitionDate;
+  const objectiveMap = createWorkflowObjectiveMap(
+    task.columnId,
+    task.objectives,
+    task.objectivesByColumn,
+  );
+  const nextObjectives = createWorkflowObjectives(nextColumnId, objectiveMap[nextColumnId]);
 
   return {
     ...task,
     columnId: nextColumnId,
     columnActualDates,
-    columnStartedDates,
     completedArchivedAt: nextColumnId === "completed" ? task.completedArchivedAt || "" : "",
-    objectives: createWorkflowObjectives(nextColumnId),
+    objectives: nextObjectives,
+    objectivesByColumn: {
+      ...objectiveMap,
+      [task.columnId]: createWorkflowObjectives(task.columnId, task.objectives),
+      [nextColumnId]: nextObjectives,
+    },
   };
 }

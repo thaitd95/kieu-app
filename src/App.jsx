@@ -15,7 +15,7 @@ import { getTaskPriority } from "./deadline";
 import { normalizePaymentMethod, normalizeShippingMethod, paymentMethods, shippingMethods } from "./reportData";
 import { sanitizeRichText, stripRichText } from "./richText";
 import { ensureAppUser, getAuthDisplayName, signOut, supabase, supabaseConfigError } from "./utils/supabase";
-import { archiveCompletedTask as archiveWorkflowCompletedTask, createWorkflowActualDates, createWorkflowDueDates, createWorkflowObjectives, createWorkflowStartedDates, DEFAULT_WORKFLOW_COLUMN_ID, getLocalDateString, getWorkflowMoveBlockReason, isTaskInCompletedArchive, moveTaskToWorkflowColumn } from "./workflow";
+import { archiveCompletedTask as archiveWorkflowCompletedTask, createWorkflowActualDates, createWorkflowDueDates, createWorkflowObjectiveMap, createWorkflowObjectives, DEFAULT_WORKFLOW_COLUMN_ID, getLocalDateString, getWorkflowMoveBlockReason, isTaskInCompletedArchive, moveTaskToWorkflowColumn } from "./workflow";
 import {
   deleteChemicalRecord,
   deleteCompanyRecord,
@@ -334,9 +334,13 @@ function App() {
       ...task,
       labels: [...task.labels],
       objectives: [...task.objectives],
+      objectivesByColumn: createWorkflowObjectiveMap(
+        task.columnId,
+        task.objectives,
+        task.objectivesByColumn,
+      ),
       columnDueDates: createWorkflowDueDates(task.columnDueDates),
       columnActualDates: createWorkflowActualDates(task.columnActualDates),
-      columnStartedDates: createWorkflowStartedDates(task.columnStartedDates),
     });
     resetTaskInputs();
   }
@@ -351,8 +355,6 @@ function App() {
       createdAt: getLocalDateString(),
       title: "",
       description: "",
-      type: "task",
-      priority: "low",
       assignee: currentUser.name,
       poNumber: "",
       quantity: "",
@@ -362,12 +364,10 @@ function App() {
       shippingMethod: shippingMethods.find((method) => method.value === "sea")?.value || shippingMethods[0].value,
       columnDueDates: createWorkflowDueDates(),
       columnActualDates: createWorkflowActualDates(),
-      columnStartedDates: createWorkflowStartedDates({
-        [DEFAULT_WORKFLOW_COLUMN_ID]: getLocalDateString(),
-      }),
       completedArchivedAt: "",
       labels: [],
       objectives: createWorkflowObjectives(DEFAULT_WORKFLOW_COLUMN_ID),
+      objectivesByColumn: createWorkflowObjectiveMap(DEFAULT_WORKFLOW_COLUMN_ID),
       companyId: "",
       chemicals: [],
       columnId: DEFAULT_WORKFLOW_COLUMN_ID,
@@ -378,6 +378,15 @@ function App() {
 
   async function saveTask() {
     if (!taskDraft.title.trim()) return;
+
+    const normalizedObjectives = taskDraft.objectives
+      .map((objective) => ({ ...objective, text: objective.text.trim() }))
+      .filter((objective) => objective.text);
+    const normalizedObjectiveMap = createWorkflowObjectiveMap(
+      taskDraft.columnId,
+      normalizedObjectives,
+      taskDraft.objectivesByColumn,
+    );
 
     const normalized = {
       ...taskDraft,
@@ -394,16 +403,13 @@ function App() {
       shippingMethod: normalizeShippingMethod(taskDraft.shippingMethod),
       columnDueDates: createWorkflowDueDates(taskDraft.columnDueDates),
       columnActualDates: createWorkflowActualDates(taskDraft.columnActualDates),
-      columnStartedDates: createWorkflowStartedDates(taskDraft.columnStartedDates),
       completedArchivedAt:
         taskDraft.columnId === "completed" && /^\d{4}-\d{2}-\d{2}$/.test(taskDraft.completedArchivedAt || "")
           ? taskDraft.completedArchivedAt
           : "",
-      priority: getTaskPriority(taskDraft),
       labels: [...new Set(taskDraft.labels.filter((label) => data.labels.some((item) => item.name === label)))],
-      objectives: taskDraft.objectives
-        .map((objective) => ({ ...objective, text: objective.text.trim() }))
-        .filter((objective) => objective.text),
+      objectives: normalizedObjectives,
+      objectivesByColumn: normalizedObjectiveMap,
     };
 
     try {

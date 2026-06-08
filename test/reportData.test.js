@@ -35,14 +35,9 @@ test("normalizes legacy seller addresses and new task fields", () => {
     "etd",
     "completed",
   ]);
-  assert.deepEqual(Object.keys(data.tasks[0].columnStartedDates), [
-    "po",
-    "ps-coa",
-    "payment",
-    "documents",
-    "etd",
-    "completed",
-  ]);
+  assert.equal("type" in data.tasks[0], false);
+  assert.equal("priority" in data.tasks[0], false);
+  assert.equal("columnStartedDates" in data.tasks[0], false);
 });
 
 test("calculates calendar day differences and shipping deductions", () => {

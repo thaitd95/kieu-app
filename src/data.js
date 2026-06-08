@@ -41,11 +41,6 @@ export const labelColors = [
 ];
 export const defaultLabelColor = labelColors[0];
 
-export const priorityColors = {
-  low: "#0c66e4",
-  high: "#c9372c",
-};
-
 export const fixedColumns = workflowColumns;
 
 export const initialData = {
@@ -93,8 +88,6 @@ export const initialData = {
       createdAt: "2026-06-01",
       title: "PO Caustic Soda - còn nhiều thời gian",
       description: "Theo dõi PO mới tạo, mốc PO còn xa nên chưa ưu tiên cao.",
-      type: "task",
-      priority: "low",
       assignee: "Mỹ Kiều",
       poNumber: "PO-2026-001",
       quantity: "20 MT",
@@ -116,8 +109,6 @@ export const initialData = {
       createdAt: "2026-06-01",
       title: "PO Soda Ash - sát hạn PO",
       description: "Mốc PO chỉ còn 2/8 ngày nên card chuyển đỏ.",
-      type: "task",
-      priority: "high",
       assignee: "Mỹ Kiều",
       poNumber: "PO-2026-002",
       quantity: "15 MT",
@@ -139,8 +130,6 @@ export const initialData = {
       createdAt: "2026-05-26",
       title: "PS COA Acetic Acid - đang ưu tiên",
       description: "PO đã xong, PS COA sắp đến hạn theo mốc dự kiến.",
-      type: "task",
-      priority: "high",
       assignee: "Mỹ Kiều",
       poNumber: "PO-2026-003",
       quantity: "8 MT",
@@ -162,8 +151,6 @@ export const initialData = {
       createdAt: "2026-05-20",
       title: "Payment Sodium Sulfate - còn xa",
       description: "Khoảng PS COA đến Payment còn nhiều ngày, giữ màu ưu tiên thấp.",
-      type: "task",
-      priority: "low",
       assignee: "Mỹ Kiều",
       poNumber: "PO-2026-004",
       quantity: "30 MT",
@@ -185,8 +172,6 @@ export const initialData = {
       createdAt: "2026-05-18",
       title: "Documents Caustic Soda - quá hạn",
       description: "Mốc Documents đã quá hạn, card hiển thị đỏ.",
-      type: "task",
-      priority: "high",
       assignee: "Mỹ Kiều",
       poNumber: "PO-2026-005",
       quantity: "12 MT",
@@ -208,8 +193,6 @@ export const initialData = {
       createdAt: "2026-05-10",
       title: "ETD Soda Ash - chờ tàu",
       description: "Đã hoàn thành chứng từ, ETD còn trong vùng an toàn.",
-      type: "task",
-      priority: "low",
       assignee: "Mỹ Kiều",
       poNumber: "PO-2026-006",
       quantity: "18 MT",
@@ -231,8 +214,6 @@ export const initialData = {
       createdAt: "2026-05-01",
       title: "Hoàn thành Acetic Acid",
       description: "PO đã hoàn thành, card hiển thị xanh lá và không cần ngày dự kiến hoàn thành.",
-      type: "task",
-      priority: "low",
       assignee: "Mỹ Kiều",
       poNumber: "PO-2026-007",
       quantity: "10 MT",

@@ -16,12 +16,14 @@ lieu theo user.
 5. `labels`: Danh muc nhan.
 6. `workflow_columns`: Sau trang thai `po`, `ps-coa`, `payment`, `documents`,
    `etd`, `completed`.
-7. `tasks`: Thong tin chinh cua cong viec/PO.
+7. `tasks`: Thong tin chinh cua cong viec/PO. Khong luu `task_type` va
+   `priority`; do uu tien duoc tinh truc tiep tren frontend tu deadline.
 8. `task_chemicals`: Bang noi nhieu-nhieu giua task va hoa chat.
 9. `task_labels`: Bang noi nhieu-nhieu giua task va nhan.
-10. `task_workflow_steps`: Ngay du kien, ngay bat dau va ngay thuc te cua tung
-    trang thai.
-11. `task_objectives`: Checklist chi tieu cua task theo tung trang thai.
+10. `task_workflow_steps`: Moi task co mot row; cot `steps` luu ngay du kien
+    va ngay thuc te cua tat ca trang thai duoi dang JSON object.
+11. `task_objectives`: Moi task co mot row; cot `objectives` luu toan bo
+    checklist theo tung trang thai duoi dang JSON object.
 12. `task_comments`: Ghi chu/hoat dong cua task.
 
 Bao cao lead time va thanh toan duoc tinh tu cac bang tren.
@@ -43,10 +45,9 @@ Bao cao lead time va thanh toan duoc tinh tu cac bang tren.
 | `chemicals[]` | `task_chemicals` |
 | `labels[]` | `task_labels` |
 | `columnId` | `tasks.current_column_code` |
-| `columnDueDates` | `task_workflow_steps.due_on` |
-| `columnStartedDates` | `task_workflow_steps.started_on` |
-| `columnActualDates` | `task_workflow_steps.actual_on` |
-| `objectives[]` | `task_objectives` |
+| `columnDueDates` | `task_workflow_steps.steps[*].due_on` |
+| `columnActualDates` | `task_workflow_steps.steps[*].actual_on` |
+| `objectivesByColumn` | `task_objectives.objectives` |
 | `comments[]` | `task_comments` |
 | `completedArchivedAt` | `tasks.completed_archived_on` |
 
@@ -74,3 +75,53 @@ Migration `202606080004_remove_workspaces.sql`:
    them hau to UUID vao ban ghi trung de khong lam mat du lieu.
 
 Can chay migration Supabase truoc khi deploy frontend moi.
+
+## Cau truc objectives JSON
+
+Bang `task_objectives` van duoc giu lai, nhung moi `task_id` chi co mot row.
+Cot `objectives jsonb` luon co du 6 trang thai va toan bo chi tieu mac dinh
+cua tung trang thai. Ung dung chi thay doi `completed` va `comment`. Vi du:
+
+```json
+{
+  "po": [
+    {
+      "id": "po-create-sap",
+      "text": "Tao PO NSX (SAP)",
+      "optional": false,
+      "commentable": false,
+      "completed": true,
+      "comment": ""
+    }
+  ],
+  "payment": []
+}
+```
+
+Migration `202606080007_task_objectives_json.sql` gom du lieu cu theo
+`task_id` va `column_code`, sau do chuyen bang sang mot row cho moi task.
+Migration `202606080008_fill_objective_templates.sql` backfill day du template
+va them constraint de ngan JSON bi thieu trang thai hoac thieu chi tieu.
+
+## Cau truc workflow steps JSON
+
+Bang `task_workflow_steps` van duoc giu lai, nhung moi `task_id` chi co mot
+row. Cot `steps jsonb` luon co du 6 trang thai; moi trang thai chi luu
+`due_on` va `actual_on`. Vi du:
+
+```json
+{
+  "po": {
+    "due_on": "2026-06-10",
+    "actual_on": "2026-06-09"
+  },
+  "ps-coa": {
+    "due_on": "2026-06-12",
+    "actual_on": ""
+  }
+}
+```
+
+Migration `202606090009_simplify_tasks_and_workflow_steps.sql` gom cac row
+step cu thanh JSON theo task, bo `started_on`, va xoa `task_type` cung
+`priority` khoi bang `tasks`.

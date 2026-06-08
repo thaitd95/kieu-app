@@ -1,7 +1,7 @@
 import { currentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, fixedColumns, legacyDefaultMembers } from "./data.js";
 import { sanitizeRichText } from "./richText.js";
 import { normalizePaymentMethod, normalizeShippingMethod } from "./reportData.js";
-import { createWorkflowActualDates, createWorkflowDueDates, createWorkflowObjectives, createWorkflowStartedDates, resolveWorkflowColumnId, workflowColumns } from "./workflow.js";
+import { createWorkflowActualDates, createWorkflowDueDates, createWorkflowObjectives, resolveWorkflowColumnId } from "./workflow.js";
 
 function createChemicalId(name, chemicals) {
   const base =
@@ -169,26 +169,25 @@ export function normalizeData(savedData) {
   const columns = fixedColumns;
 
   const tasks = (savedData.tasks || []).map((task) => {
+    const {
+      columnStartedDates: _columnStartedDates,
+      priority: _priority,
+      type: _type,
+      ...taskFields
+    } = task;
     const columnId = resolveWorkflowColumnId(
       task.columnId,
       savedColumnTitles.get(task.columnId),
     );
 
     const columnActualDates = createWorkflowActualDates(task.columnActualDates);
-    const columnStartedDates = createWorkflowStartedDates(task.columnStartedDates);
-    const currentColumnIndex = workflowColumns.findIndex((column) => column.id === columnId);
-    const previousColumnId = workflowColumns[currentColumnIndex - 1]?.id;
-    if (!columnStartedDates[columnId] && previousColumnId) {
-      columnStartedDates[columnId] = columnActualDates[previousColumnId] || "";
-    }
 
     return {
-      ...task,
+      ...taskFields,
       key: task.key?.replace(/^TF-/, "KA-"),
       assignee: uniqueMembers.includes(task.assignee) ? task.assignee : currentUser.name,
       columnId,
       createdAt: /^\d{4}-\d{2}-\d{2}$/.test(task.createdAt || "") ? task.createdAt : "",
-      priority: task.priority === "high" || task.priority === "highest" ? "high" : "low",
       poNumber: String(task.poNumber || ""),
       quantity: String(task.quantity || ""),
       amount: String(task.amount || ""),
@@ -201,7 +200,6 @@ export function normalizeData(savedData) {
       objectives: createWorkflowObjectives(columnId, normalizeTaskObjectives(task)),
       columnDueDates: createWorkflowDueDates(task.columnDueDates),
       columnActualDates,
-      columnStartedDates,
       completedArchivedAt: /^\d{4}-\d{2}-\d{2}$/.test(task.completedArchivedAt || "")
         ? task.completedArchivedAt
         : "",

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   archiveCompletedTask,
   canMoveTaskToWorkflowColumn,
+  createWorkflowObjectiveMap,
+  createWorkflowObjectives,
   getWorkflowMoveBlockReason,
   isTaskInCompletedArchive,
   moveTaskToWorkflowColumn,
@@ -12,21 +14,18 @@ test("records previous status actual date when moving forward", () => {
   const task = {
     columnId: "po",
     columnActualDates: {},
-    columnStartedDates: { po: "2026-06-01" },
     objectives: [],
   };
 
   const moved = moveTaskToWorkflowColumn(task, "ps-coa", { now: new Date(2026, 5, 7) });
   assert.equal(moved.columnId, "ps-coa");
   assert.equal(moved.columnActualDates.po, "2026-06-07");
-  assert.equal(moved.columnStartedDates["ps-coa"], "2026-06-07");
 });
 
 test("does not backfill previous actual dates when setting status for a new task", () => {
   const task = {
     columnId: "po",
     columnActualDates: {},
-    columnStartedDates: { po: "2026-06-01" },
     objectives: [],
   };
 
@@ -37,7 +36,6 @@ test("does not backfill previous actual dates when setting status for a new task
   assert.equal(moved.columnId, "completed");
   assert.equal(moved.columnActualDates.po, "");
   assert.equal(moved.columnActualDates.completed, "2026-06-07");
-  assert.equal(moved.columnStartedDates.completed, "2026-06-07");
 });
 
 test("blocks forward moves until required current objectives are completed", () => {
@@ -76,6 +74,57 @@ test("allows new tasks to be created directly as completed without objective che
   assert.equal(canMoveTaskToWorkflowColumn(task, "completed", { isNewTask: true }), true);
 });
 
+test("preserves objectives for each workflow status", () => {
+  const poObjectives = createWorkflowObjectives("po").map((objective) => ({
+    ...objective,
+    completed: true,
+  }));
+  const task = {
+    columnId: "po",
+    columnActualDates: {},
+    objectives: poObjectives,
+    objectivesByColumn: { po: poObjectives },
+  };
+
+  const moved = moveTaskToWorkflowColumn(task, "ps-coa", { now: new Date(2026, 5, 7) });
+  const returned = moveTaskToWorkflowColumn(moved, "po", { now: new Date(2026, 5, 8) });
+
+  assert.equal(returned.objectives.every((objective) => objective.completed), true);
+  assert.equal(returned.objectivesByColumn.po.every((objective) => objective.completed), true);
+});
+
+test("creates the full objective template for every workflow status", () => {
+  const objectiveMap = createWorkflowObjectiveMap();
+
+  assert.deepEqual(
+    Object.fromEntries(
+      Object.entries(objectiveMap).map(([columnId, objectives]) => [
+        columnId,
+        objectives.length,
+      ]),
+    ),
+    {
+      po: 3,
+      "ps-coa": 3,
+      payment: 4,
+      documents: 8,
+      etd: 3,
+      completed: 2,
+    },
+  );
+  assert.equal(
+    Object.values(objectiveMap)
+      .flat()
+      .every(
+        (objective) =>
+          typeof objective.optional === "boolean" &&
+          typeof objective.commentable === "boolean" &&
+          typeof objective.completed === "boolean",
+      ),
+    true,
+  );
+});
+
 test("moves completed work to completed archive after fourteen days", () => {
   const task = {
     columnId: "completed",
@@ -90,7 +139,6 @@ test("archives completed work manually and clears archive when status changes", 
   const task = {
     columnId: "completed",
     columnActualDates: {},
-    columnStartedDates: { completed: "2026-06-01" },
   };
 
   const archived = archiveCompletedTask(task, new Date(2026, 5, 7));
