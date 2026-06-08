@@ -3,6 +3,7 @@ import {
   createWorkflowActualDates,
   createWorkflowDueDates,
   createWorkflowObjectiveMap,
+  serializeWorkflowObjectiveMap,
   workflowColumns,
 } from "./workflow.js";
 import { getAuthDisplayName, supabase } from "./utils/supabase.js";
@@ -159,7 +160,7 @@ function mapTasks(taskRows, relationRows, memberSource, labelSource) {
       id: row.id,
       author: memberNames.get(row.author_member_id) || row.author_name,
       text: row.body,
-      createdAt: row.legacy_created_at_text || formatCommentDate(row.created_at),
+      createdAt: formatCommentDate(row.created_at),
     });
     taskComments.set(row.task_id, values);
   });
@@ -468,7 +469,6 @@ export async function saveTaskRecord(data, task) {
   const childTables = [
     "task_chemicals",
     "task_labels",
-    "task_comments",
   ];
   const deleteResults = await Promise.all(
     childTables.map((table) =>
@@ -519,7 +519,7 @@ export async function saveTaskRecord(data, task) {
       .upsert(
         {
           task_id: id,
-          objectives: objectivesByColumn,
+          objectives: serializeWorkflowObjectiveMap(objectivesByColumn),
         },
         { onConflict: "task_id" },
       ),
@@ -527,15 +527,15 @@ export async function saveTaskRecord(data, task) {
 
   if (task.comments.length) {
     inserts.push(
-      supabase.from("task_comments").insert(
+      supabase.from("task_comments").upsert(
         task.comments.map((comment) => ({
           id: isUuid(comment.id) ? comment.id : createId(),
           task_id: id,
           author_member_id: getMemberId(data, comment.author),
           author_name: comment.author,
           body: comment.text,
-          legacy_created_at_text: comment.createdAt,
         })),
+        { onConflict: "id" },
       ),
     );
   }
@@ -562,7 +562,6 @@ export async function saveCommentRecord(data, taskId, comment) {
         author_member_id: getMemberId(data, comment.author),
         author_name: comment.author,
         body: comment.text,
-        legacy_created_at_text: comment.createdAt,
       })
       .select("*")
       .single(),
@@ -571,6 +570,7 @@ export async function saveCommentRecord(data, taskId, comment) {
   return {
     ...comment,
     id: row.id,
+    createdAt: formatCommentDate(row.created_at),
   };
 }
 

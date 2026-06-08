@@ -8,6 +8,7 @@ import {
   getWorkflowMoveBlockReason,
   isTaskInCompletedArchive,
   moveTaskToWorkflowColumn,
+  serializeWorkflowObjectiveMap,
 } from "../src/workflow.js";
 
 test("records previous status actual date when moving forward", () => {
@@ -123,6 +124,16 @@ test("creates the full objective template for every workflow status", () => {
       ),
     true,
   );
+});
+
+test("serializes objective state without template text", () => {
+  const objectiveMap = createWorkflowObjectiveMap();
+  objectiveMap.po[0].completed = true;
+  const serialized = serializeWorkflowObjectiveMap(objectiveMap);
+
+  assert.equal(serialized.po[0].id, "po-create-sap");
+  assert.equal(serialized.po[0].completed, true);
+  assert.equal("text" in serialized.po[0], false);
 });
 
 test("moves completed work to completed archive after fourteen days", () => {

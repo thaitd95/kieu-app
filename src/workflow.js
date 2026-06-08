@@ -118,6 +118,23 @@ export function createWorkflowObjectiveMap(
   return objectiveMap;
 }
 
+export function serializeWorkflowObjectiveMap(objectiveMap = {}) {
+  return Object.fromEntries(
+    workflowColumns.map((column) => [
+      column.id,
+      createWorkflowObjectives(column.id, objectiveMap[column.id]).map(
+        ({ id, optional, commentable, completed, comment }) => ({
+          id,
+          optional,
+          commentable,
+          completed,
+          comment,
+        }),
+      ),
+    ]),
+  );
+}
+
 export function createWorkflowDueDates(currentDueDates = {}) {
   return Object.fromEntries(
     workflowColumns.map((column) => [

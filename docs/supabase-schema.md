@@ -80,14 +80,15 @@ Can chay migration Supabase truoc khi deploy frontend moi.
 
 Bang `task_objectives` van duoc giu lai, nhung moi `task_id` chi co mot row.
 Cot `objectives jsonb` luon co du 6 trang thai va toan bo chi tieu mac dinh
-cua tung trang thai. Ung dung chi thay doi `completed` va `comment`. Vi du:
+cua tung trang thai. Database khong luu `text`; frontend dung `id` de lay noi
+dung tu `workflowObjectiveTemplates`. Ung dung chi thay doi `completed` va
+`comment`. Vi du:
 
 ```json
 {
   "po": [
     {
       "id": "po-create-sap",
-      "text": "Tao PO NSX (SAP)",
       "optional": false,
       "commentable": false,
       "completed": true,
@@ -102,6 +103,9 @@ Migration `202606080007_task_objectives_json.sql` gom du lieu cu theo
 `task_id` va `column_code`, sau do chuyen bang sang mot row cho moi task.
 Migration `202606080008_fill_objective_templates.sql` backfill day du template
 va them constraint de ngan JSON bi thieu trang thai hoac thieu chi tieu.
+Migration `202606090010_remove_objective_text_and_legacy_comment_date.sql`
+loai `text` khoi JSON objective, hydrate text tu template tren frontend, va
+bo `task_comments.legacy_created_at_text` de chi dung `created_at`.
 
 ## Cau truc workflow steps JSON
 
