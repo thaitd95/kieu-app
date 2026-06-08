@@ -125,6 +125,7 @@ export function normalizeData(savedData) {
     if (existing) return existing.name;
 
     labels.push({
+      ...(typeof value === "object" && value.id ? { id: value.id } : {}),
       name,
       color: (typeof value === "object" && value.color) || defaultLabelColor,
     });

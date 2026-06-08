@@ -42,7 +42,7 @@ export function Sidebar({ activeView, currentUser, members, setActiveView, setTh
   );
 }
 
-export function Topbar({ currentUser, members, onExportData, onImportData, search, setSearch }) {
+export function Topbar({ currentUser, members, onExportData, onImportData, onSignOut, search, setSearch }) {
   return (
     <header className="topbar">
       <div className="breadcrumbs"><span>Dự án</span><Icon name="chevron" size={14} /><strong>KieuAssistant</strong></div>
@@ -67,6 +67,9 @@ export function Topbar({ currentUser, members, onExportData, onImportData, searc
         <button className="icon-button"><Icon name="grid" size={18} /></button>
         <button className="icon-button has-notification"><Icon name="comment" size={18} /></button>
         <Avatar name={currentUser.name} size="small" index={members.indexOf(currentUser.name)} />
+        <button className="topbar-sign-out" onClick={onSignOut} type="button">
+          Đăng xuất
+        </button>
       </div>
     </header>
   );

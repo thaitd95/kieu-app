@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import AuthScreen from "./components/AuthScreen";
 import BoardToolbar from "./components/BoardToolbar";
 import ChemicalManagement from "./components/ChemicalManagement";
 import CompanyEditModal from "./components/CompanyEditModal";
@@ -8,16 +9,35 @@ import { BoardHeader, Sidebar, Topbar } from "./components/Layout";
 import ReportManagement from "./components/ReportManagement";
 import TaskBoard, { CompletedArchiveSection } from "./components/TaskBoard";
 import TaskModal from "./components/TaskModal";
-import { chemicalColors, columnColors, currentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, initialData, labelColors } from "./data";
-import { loadInitialData, saveStoredData } from "./db";
+import { chemicalColors, columnColors, currentUser as defaultCurrentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, initialData, labelColors } from "./data";
+import { loadInitialData } from "./db";
 import { createSystemBackup, mergeSystemBackup } from "./dataTransfer";
 import { getTaskPriority } from "./deadline";
-import { normalizeData } from "./model";
 import { normalizePaymentMethod, normalizeShippingMethod, paymentMethods, shippingMethods } from "./reportData";
 import { sanitizeRichText, stripRichText } from "./richText";
+import { ensureUserWorkspace, getAuthDisplayName, signOut, supabase } from "./utils/supabase";
 import { archiveCompletedTask as archiveWorkflowCompletedTask, createWorkflowActualDates, createWorkflowDueDates, createWorkflowObjectives, createWorkflowStartedDates, DEFAULT_WORKFLOW_COLUMN_ID, getLocalDateString, getWorkflowMoveBlockReason, isTaskInCompletedArchive, moveTaskToWorkflowColumn } from "./workflow";
+import {
+  deleteChemicalRecord,
+  deleteCompanyRecord,
+  deleteLabelRecord,
+  deleteTaskRecord,
+  loadWorkspaceData,
+  mergeWorkspaceData,
+  removeWorkspaceMember,
+  replaceWorkspaceData,
+  saveChemicalRecord,
+  saveCommentRecord,
+  saveCompanyRecord,
+  saveLabelRecord,
+  saveTaskRecord,
+  saveWorkspaceMember,
+} from "./workspaceData";
 
 function App() {
+  const [session, setSession] = useState(undefined);
+  const [workspace, setWorkspace] = useState(null);
+  const [authError, setAuthError] = useState("");
   const [data, setData] = useState(null);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [isDataReady, setIsDataReady] = useState(false);
@@ -43,30 +63,72 @@ function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem("kieu-assistant-theme") || "light");
 
   useEffect(() => {
-    let isActive = true;
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+    });
 
-    loadInitialData(initialData)
-      .then((storedData) => {
-        if (!isActive) return;
-        setData(normalizeData(storedData));
-        setIsDataReady(true);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      setSession(currentSession);
+      if (!currentSession) {
+        setWorkspace(null);
+        setData(null);
+        setIsDataReady(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user) return;
+
+    let isActive = true;
+    setAuthError("");
+
+    ensureUserWorkspace(session.user)
+      .then((currentWorkspace) => {
+        if (isActive) setWorkspace(currentWorkspace);
       })
-      .catch(() => {
-        if (isActive) setStorageError("Không thể mở cơ sở dữ liệu cục bộ IndexedDB.");
+      .catch((error) => {
+        if (isActive) setAuthError(`Không thể mở workspace Supabase. ${error.message}`);
       });
 
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [session?.user?.id]);
 
   useEffect(() => {
-    if (!isDataReady || !data) return;
+    if (!session?.user || !workspace) return;
 
-    saveStoredData(data).catch(() => {
-      setStorageError("Không thể lưu dữ liệu vào IndexedDB.");
+    let isActive = true;
+    setStorageError("");
+
+    async function loadData() {
+      let workspaceData;
+      if (workspace.data_initialized) {
+        workspaceData = await loadWorkspaceData(workspace.id);
+      } else {
+        const storedData = await loadInitialData(initialData);
+        workspaceData = await replaceWorkspaceData(workspace.id, storedData, session.user);
+        setWorkspace((current) => ({ ...current, data_initialized: true }));
+      }
+
+      if (!isActive) return;
+      setData(workspaceData);
+      setIsDataReady(true);
+    }
+
+    loadData().catch((error) => {
+      if (isActive) setStorageError(`Không thể tải dữ liệu Supabase. ${error.message}`);
     });
-  }, [data, isDataReady]);
+
+    return () => {
+      isActive = false;
+    };
+  }, [session?.user?.id, workspace?.id, workspace?.data_initialized]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -78,6 +140,13 @@ function App() {
     return () => window.clearInterval(timerId);
   }, []);
 
+  const currentUser = useMemo(
+    () => ({
+      name: session?.user ? getAuthDisplayName(session.user) : defaultCurrentUser.name,
+      role: "App Owner",
+    }),
+    [session?.user],
+  );
   const members = data?.members || defaultMembers;
   const customMembers = members.filter((person) => person !== currentUser.name);
   const availableLabels = useMemo(
@@ -125,16 +194,36 @@ function App() {
     [currentTime, filteredTasks],
   );
 
-  if (storageError) {
-    return <div className="storage-state storage-state-error">{storageError}</div>;
+  if (session === undefined) {
+    return <div className="storage-state">Đang kiểm tra đăng nhập...</div>;
   }
 
-  if (!isDataReady || !data) {
+  if (!session) {
+    return <AuthScreen />;
+  }
+
+  if (authError || storageError) {
+    return <div className="storage-state storage-state-error">{authError || storageError}</div>;
+  }
+
+  if (!workspace || !isDataReady || !data) {
     return <div className="storage-state">Đang tải dữ liệu...</div>;
+  }
+
+  async function handleSignOut() {
+    try {
+      await signOut();
+    } catch (error) {
+      setAuthError(`Không thể đăng xuất. ${error.message}`);
+    }
   }
 
   function updateData(updater) {
     setData((current) => updater(current));
+  }
+
+  function showDataError(error) {
+    window.alert(`Không thể lưu dữ liệu lên Supabase. ${error.message}`);
   }
 
   function resetTaskInputs() {
@@ -162,7 +251,7 @@ function App() {
 
     setSelectedTaskId("new");
     setTaskDraft({
-      id: `task-${Date.now()}`,
+      id: crypto.randomUUID(),
       key: `KA-${sequence}`,
       createdAt: getLocalDateString(),
       title: "",
@@ -192,7 +281,7 @@ function App() {
     resetTaskInputs();
   }
 
-  function saveTask() {
+  async function saveTask() {
     if (!taskDraft.title.trim()) return;
 
     const normalized = {
@@ -222,37 +311,52 @@ function App() {
         .filter((objective) => objective.text),
     };
 
-    updateData((current) => ({
-      ...current,
-      tasks:
-        selectedTaskId === "new"
-          ? [...current.tasks, normalized]
-          : current.tasks.map((task) => (task.id === normalized.id ? normalized : task)),
-    }));
-    setSelectedTaskId(null);
-    setTaskDraft(null);
+    try {
+      const savedTask = await saveTaskRecord(workspace.id, data, normalized);
+      updateData((current) => ({
+        ...current,
+        tasks:
+          selectedTaskId === "new"
+            ? [...current.tasks, savedTask]
+            : current.tasks.map((task) => (task.id === savedTask.id ? savedTask : task)),
+      }));
+      setSelectedTaskId(null);
+      setTaskDraft(null);
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function deleteTask() {
+  async function deleteTask() {
     if (!taskDraft || !window.confirm(`Xóa công việc ${taskDraft.key}?`)) return;
 
-    updateData((current) => ({
-      ...current,
-      tasks: current.tasks.filter((task) => task.id !== taskDraft.id),
-    }));
-    setSelectedTaskId(null);
-    setTaskDraft(null);
+    try {
+      await deleteTaskRecord(workspace.id, taskDraft.id);
+      updateData((current) => ({
+        ...current,
+        tasks: current.tasks.filter((task) => task.id !== taskDraft.id),
+      }));
+      setSelectedTaskId(null);
+      setTaskDraft(null);
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function deleteTaskFromBoard(task) {
+  async function deleteTaskFromBoard(task) {
     if (!window.confirm(`Xóa công việc ${task.key}?`)) return;
-    updateData((current) => ({
-      ...current,
-      tasks: current.tasks.filter((item) => item.id !== task.id),
-    }));
+    try {
+      await deleteTaskRecord(workspace.id, task.id);
+      updateData((current) => ({
+        ...current,
+        tasks: current.tasks.filter((item) => item.id !== task.id),
+      }));
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function moveTask(taskId, columnId) {
+  async function moveTask(taskId, columnId) {
     const task = data.tasks.find((item) => item.id === taskId);
     const blockReason = getWorkflowMoveBlockReason(task, columnId);
     if (blockReason) {
@@ -260,58 +364,94 @@ function App() {
       return;
     }
 
-    updateData((current) => ({
-      ...current,
-      tasks: current.tasks.map((item) =>
-        item.id === taskId ? moveTaskToWorkflowColumn(item, columnId) : item,
-      ),
-    }));
+    const movedTask = moveTaskToWorkflowColumn(task, columnId);
+    try {
+      await saveTaskRecord(workspace.id, data, movedTask);
+      updateData((current) => ({
+        ...current,
+        tasks: current.tasks.map((item) => (item.id === taskId ? movedTask : item)),
+      }));
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function archiveCompletedTask(taskId) {
-    updateData((current) => ({
-      ...current,
-      tasks: current.tasks.map((task) =>
-        task.id === taskId ? archiveWorkflowCompletedTask(task, currentTime) : task,
-      ),
-    }));
+  async function archiveCompletedTask(taskId) {
+    const task = data.tasks.find((item) => item.id === taskId);
+    const archivedTask = archiveWorkflowCompletedTask(task, currentTime);
+    try {
+      await saveTaskRecord(workspace.id, data, archivedTask);
+      updateData((current) => ({
+        ...current,
+        tasks: current.tasks.map((item) => (item.id === taskId ? archivedTask : item)),
+      }));
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function assignTask(taskId, assignee) {
-    updateData((current) => ({
-      ...current,
-      tasks: current.tasks.map((task) => (task.id === taskId ? { ...task, assignee } : task)),
-    }));
+  async function assignTask(taskId, assignee) {
+    const task = data.tasks.find((item) => item.id === taskId);
+    const assignedTask = { ...task, assignee };
+    try {
+      await saveTaskRecord(workspace.id, data, assignedTask);
+      updateData((current) => ({
+        ...current,
+        tasks: current.tasks.map((item) => (item.id === taskId ? assignedTask : item)),
+      }));
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function addAssignee() {
+  async function addAssignee() {
     const name = newAssigneeName.trim();
     if (!name) return;
 
-    updateData((current) => ({
-      ...current,
-      members: current.members?.includes(name) ? current.members : [...(current.members || defaultMembers), name],
-    }));
-    setTaskDraft((current) => ({ ...current, assignee: name }));
-    setNewAssigneeName("");
+    try {
+      const member =
+        data.memberRecords.find((item) => item.name === name) ||
+        await saveWorkspaceMember(workspace.id, name);
+      updateData((current) => ({
+        ...current,
+        members: current.members.includes(name) ? current.members : [...current.members, name],
+        memberRecords: current.memberRecords.some((item) => item.id === member.id)
+          ? current.memberRecords
+          : [...current.memberRecords, member],
+      }));
+      setTaskDraft((current) => ({ ...current, assignee: name }));
+      setNewAssigneeName("");
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function removeAssignee(name) {
+  async function removeAssignee(name) {
     if (!customMembers.includes(name) || !window.confirm(`Xóa người phụ trách ${name}?`)) return;
 
-    updateData((current) => ({
-      ...current,
-      members: (current.members || defaultMembers).filter((person) => person !== name),
-      tasks: current.tasks.map((task) =>
-        task.assignee === name ? { ...task, assignee: currentUser.name } : task,
-      ),
-    }));
-    setTaskDraft((current) =>
-      current?.assignee === name ? { ...current, assignee: currentUser.name } : current,
-    );
+    const member = data.memberRecords.find((item) => item.name === name);
+    const owner = data.memberRecords.find((item) => item.name === currentUser.name);
+    if (!member || !owner) return;
+
+    try {
+      await removeWorkspaceMember(workspace.id, member.id, owner.id);
+      updateData((current) => ({
+        ...current,
+        members: current.members.filter((person) => person !== name),
+        memberRecords: current.memberRecords.filter((item) => item.id !== member.id),
+        tasks: current.tasks.map((task) =>
+          task.assignee === name ? { ...task, assignee: currentUser.name } : task,
+        ),
+      }));
+      setTaskDraft((current) =>
+        current?.assignee === name ? { ...current, assignee: currentUser.name } : current,
+      );
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function addChemical() {
+  async function addChemical() {
     const name = newChemicalName.trim();
     if (!name) return;
 
@@ -319,20 +459,25 @@ function App() {
       (chemical) => chemical.name.toLocaleLowerCase("vi") === name.toLocaleLowerCase("vi"),
     );
     const chemical = existing || {
-      id: `chemical-${Date.now()}`,
+      id: crypto.randomUUID(),
       name,
       color: newChemicalColor,
     };
 
-    updateData((current) => ({
-      ...current,
-      chemicals: existing ? current.chemicals : [...current.chemicals, chemical],
-    }));
-    setNewChemicalName("");
-    setNewChemicalColor(defaultChemicalColor);
+    try {
+      const savedChemical = existing || await saveChemicalRecord(workspace.id, chemical);
+      updateData((current) => ({
+        ...current,
+        chemicals: existing ? current.chemicals : [...current.chemicals, savedChemical],
+      }));
+      setNewChemicalName("");
+      setNewChemicalColor(defaultChemicalColor);
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function deleteChemical(chemicalId) {
+  async function deleteChemical(chemicalId) {
     const chemical = data.chemicals.find((item) => item.id === chemicalId);
     if (!chemical) return;
 
@@ -343,14 +488,19 @@ function App() {
     }
     if (!window.confirm(`Xóa hóa chất ${chemical.name}?`)) return;
 
-    updateData((current) => ({
-      ...current,
-      chemicals: current.chemicals.filter((item) => item.id !== chemicalId),
-    }));
-    if (selectedChemical === chemicalId) setSelectedChemical("");
+    try {
+      await deleteChemicalRecord(workspace.id, chemicalId);
+      updateData((current) => ({
+        ...current,
+        chemicals: current.chemicals.filter((item) => item.id !== chemicalId),
+      }));
+      if (selectedChemical === chemicalId) setSelectedChemical("");
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function saveCompany(draft) {
+  async function saveCompany(draft) {
     const name = draft.name.trim();
     if (!name) return;
 
@@ -366,7 +516,7 @@ function App() {
 
     const normalized = {
       ...draft,
-      id: draft.id || `company-${Date.now()}`,
+      id: draft.id || crypto.randomUUID(),
       name,
       accountNumber: String(draft.accountNumber || "").trim(),
       officeAddress: String(draft.officeAddress || "").trim(),
@@ -374,16 +524,23 @@ function App() {
       description: sanitizeRichText(draft.description),
     };
 
-    updateData((current) => ({
-      ...current,
-      companies: draft.id
-        ? current.companies.map((company) => (company.id === normalized.id ? normalized : company))
-        : [...current.companies, normalized],
-    }));
-    setEditingCompanyDraft(null);
+    try {
+      const savedCompany = await saveCompanyRecord(workspace.id, normalized);
+      updateData((current) => ({
+        ...current,
+        companies: draft.id
+          ? current.companies.map((company) =>
+              company.id === savedCompany.id ? savedCompany : company,
+            )
+          : [...current.companies, savedCompany],
+      }));
+      setEditingCompanyDraft(null);
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function deleteCompany(companyId) {
+  async function deleteCompany(companyId) {
     const company = data.companies.find((item) => item.id === companyId);
     if (!company) return;
 
@@ -394,15 +551,20 @@ function App() {
     }
     if (!window.confirm(`Xóa Seller ${company.name}?`)) return;
 
-    updateData((current) => ({
-      ...current,
-      companies: current.companies.filter((item) => item.id !== companyId),
-    }));
-    if (selectedCompany === companyId) setSelectedCompany("");
-    if (editingCompanyDraft?.id === companyId) setEditingCompanyDraft(null);
+    try {
+      await deleteCompanyRecord(workspace.id, companyId);
+      updateData((current) => ({
+        ...current,
+        companies: current.companies.filter((item) => item.id !== companyId),
+      }));
+      if (selectedCompany === companyId) setSelectedCompany("");
+      if (editingCompanyDraft?.id === companyId) setEditingCompanyDraft(null);
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
-  function addLabel(value, color = defaultLabelColor) {
+  async function addLabel(value, color = defaultLabelColor) {
     const label = value.trim();
     if (!label) return false;
 
@@ -414,14 +576,24 @@ function App() {
       return false;
     }
 
-    updateData((current) => ({
-      ...current,
-      labels: [...current.labels, { name: label, color }],
-    }));
-    return true;
+    try {
+      const savedLabel = await saveLabelRecord(workspace.id, {
+        id: crypto.randomUUID(),
+        name: label,
+        color,
+      });
+      updateData((current) => ({
+        ...current,
+        labels: [...current.labels, savedLabel],
+      }));
+      return true;
+    } catch (error) {
+      showDataError(error);
+      return false;
+    }
   }
 
-  function renameLabel(currentLabel, value, color) {
+  async function renameLabel(currentLabel, value, color) {
     const nextLabel = value.trim();
     if (!nextLabel) return false;
     const currentItem = data.labels.find((item) => item.name === currentLabel);
@@ -437,23 +609,33 @@ function App() {
       return false;
     }
 
-    updateData((current) => ({
-      ...current,
-      labels: current.labels.map((label) =>
-        label.name === currentLabel ? { ...label, name: nextLabel, color: color || label.color } : label,
-      ),
-      tasks: current.tasks.map((task) => ({
-        ...task,
-        labels: task.labels.map((label) => (label === currentLabel ? nextLabel : label)),
-      })),
-    }));
-    setSelectedLabels((current) =>
-      current.map((label) => (label === currentLabel ? nextLabel : label)),
-    );
-    return true;
+    try {
+      const savedLabel = await saveLabelRecord(workspace.id, {
+        ...currentItem,
+        name: nextLabel,
+        color: color || currentItem.color,
+      });
+      updateData((current) => ({
+        ...current,
+        labels: current.labels.map((label) =>
+          label.id === savedLabel.id ? savedLabel : label,
+        ),
+        tasks: current.tasks.map((task) => ({
+          ...task,
+          labels: task.labels.map((label) => (label === currentLabel ? nextLabel : label)),
+        })),
+      }));
+      setSelectedLabels((current) =>
+        current.map((label) => (label === currentLabel ? nextLabel : label)),
+      );
+      return true;
+    } catch (error) {
+      showDataError(error);
+      return false;
+    }
   }
 
-  function deleteLabel(label) {
+  async function deleteLabel(label) {
     const isUsed = data.tasks.some((task) => task.labels.includes(label));
     if (isUsed) {
       window.alert("Không thể xóa nhãn đang được sử dụng trong công việc.");
@@ -461,11 +643,19 @@ function App() {
     }
     if (!window.confirm(`Xóa nhãn ${label}?`)) return;
 
-    updateData((current) => ({
-      ...current,
-      labels: current.labels.filter((item) => item.name !== label),
-    }));
-    setSelectedLabels((current) => current.filter((item) => item !== label));
+    const labelRecord = data.labels.find((item) => item.name === label);
+    if (!labelRecord) return;
+
+    try {
+      await deleteLabelRecord(workspace.id, labelRecord.id);
+      updateData((current) => ({
+        ...current,
+        labels: current.labels.filter((item) => item.id !== labelRecord.id),
+      }));
+      setSelectedLabels((current) => current.filter((item) => item !== label));
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
   function toggleLabelFilter(label) {
@@ -474,12 +664,12 @@ function App() {
     );
   }
 
-  function addComment() {
+  async function addComment() {
     const text = commentText.trim();
     if (!text) return;
 
     const comment = {
-      id: `comment-${Date.now()}`,
+      id: crypto.randomUUID(),
       author: currentUser.name,
       text,
       createdAt: new Intl.DateTimeFormat("vi-VN", {
@@ -491,8 +681,35 @@ function App() {
       }).format(new Date()),
     };
 
-    setTaskDraft((current) => ({ ...current, comments: [...current.comments, comment] }));
-    setCommentText("");
+    if (selectedTaskId === "new") {
+      setTaskDraft((current) => ({ ...current, comments: [...current.comments, comment] }));
+      setCommentText("");
+      return;
+    }
+
+    try {
+      const savedComment = await saveCommentRecord(
+        workspace.id,
+        data,
+        taskDraft.id,
+        comment,
+      );
+      setTaskDraft((current) => ({
+        ...current,
+        comments: [...current.comments, savedComment],
+      }));
+      updateData((current) => ({
+        ...current,
+        tasks: current.tasks.map((task) =>
+          task.id === taskDraft.id
+            ? { ...task, comments: [...task.comments, savedComment] }
+            : task,
+        ),
+      }));
+      setCommentText("");
+    } catch (error) {
+      showDataError(error);
+    }
   }
 
   function exportData() {
@@ -512,7 +729,8 @@ function App() {
       const result = mergeSystemBackup(data, backup);
       const summary = result.summary;
 
-      setData(result.data);
+      const importedData = await mergeWorkspaceData(workspace.id, result.data, session.user);
+      setData(importedData);
       window.alert(
         `Đã nhập dữ liệu mới: ${summary.tasks} công việc, ${summary.companies} Seller, ${summary.chemicals} hóa chất, ${summary.labels} nhãn, ${summary.columns} cột và ${summary.members} người phụ trách. Bỏ qua ${summary.skippedTasks} công việc đã tồn tại.`,
       );
@@ -537,7 +755,7 @@ function App() {
     <div className="app-shell">
       <Sidebar activeView={activeView} currentUser={currentUser} members={members} setActiveView={setActiveView} setTheme={setTheme} theme={theme} />
       <main className="main-content">
-        <Topbar currentUser={currentUser} members={members} onExportData={exportData} onImportData={importData} search={search} setSearch={setSearch} />
+        <Topbar currentUser={currentUser} members={members} onExportData={exportData} onImportData={importData} onSignOut={handleSignOut} search={search} setSearch={setSearch} />
         {activeView === "board" ? (
           <>
             <BoardHeader startNewTask={startNewTask} />

@@ -26,8 +26,8 @@ export default function LabelManagement({ addLabel, deleteLabel, labelColors, la
   const [editingName, setEditingName] = useState("");
   const [editingColor, setEditingColor] = useState(labelColors[0]);
 
-  function createLabel() {
-    if (addLabel(newLabelName, newLabelColor)) setNewLabelName("");
+  async function createLabel() {
+    if (await addLabel(newLabelName, newLabelColor)) setNewLabelName("");
   }
 
   function startEditing(label) {
@@ -36,8 +36,8 @@ export default function LabelManagement({ addLabel, deleteLabel, labelColors, la
     setEditingColor(label.color);
   }
 
-  function saveEditing() {
-    if (renameLabel(editingLabel, editingName, editingColor)) {
+  async function saveEditing() {
+    if (await renameLabel(editingLabel, editingName, editingColor)) {
       setEditingLabel("");
       setEditingName("");
     }
