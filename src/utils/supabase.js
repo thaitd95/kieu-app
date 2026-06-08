@@ -3,13 +3,17 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error(
-    "Thiếu VITE_SUPABASE_URL hoặc VITE_SUPABASE_PUBLISHABLE_KEY trong file .env.",
-  );
-}
+export const supabaseConfigError =
+  !supabaseUrl || !supabaseKey
+    ? "Thiếu VITE_SUPABASE_URL hoặc VITE_SUPABASE_PUBLISHABLE_KEY. Hãy khai báo hai biến này trong Vercel Project Settings > Environment Variables rồi redeploy."
+    : "";
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = supabaseConfigError ? null : createClient(supabaseUrl, supabaseKey);
+
+function getSupabaseClient() {
+  if (!supabase) throw new Error(supabaseConfigError);
+  return supabase;
+}
 
 export function getAuthDisplayName(user) {
   return (
@@ -21,7 +25,7 @@ export function getAuthDisplayName(user) {
 }
 
 export async function signInWithPassword(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await getSupabaseClient().auth.signInWithPassword({
     email: email.trim(),
     password,
   });
@@ -31,7 +35,7 @@ export async function signInWithPassword(email, password) {
 }
 
 export async function signUpWithPassword({ email, fullName, password }) {
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await getSupabaseClient().auth.signUp({
     email: email.trim(),
     password,
     options: {
@@ -47,12 +51,13 @@ export async function signUpWithPassword({ email, fullName, password }) {
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await getSupabaseClient().auth.signOut();
   if (error) throw error;
 }
 
 export async function ensureUserWorkspace(user) {
-  const { data: existingWorkspace, error: selectError } = await supabase
+  const client = getSupabaseClient();
+  const { data: existingWorkspace, error: selectError } = await client
     .from("workspaces")
     .select("id, name, data_initialized")
     .order("created_at", { ascending: true })
@@ -62,7 +67,7 @@ export async function ensureUserWorkspace(user) {
   if (selectError) throw selectError;
   if (existingWorkspace) return existingWorkspace;
 
-  const { data: workspace, error: insertError } = await supabase
+  const { data: workspace, error: insertError } = await client
     .from("workspaces")
     .insert({
       name: "KieuAssistant",

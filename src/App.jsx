@@ -15,7 +15,7 @@ import { createSystemBackup, mergeSystemBackup } from "./dataTransfer";
 import { getTaskPriority } from "./deadline";
 import { normalizePaymentMethod, normalizeShippingMethod, paymentMethods, shippingMethods } from "./reportData";
 import { sanitizeRichText, stripRichText } from "./richText";
-import { ensureUserWorkspace, getAuthDisplayName, signOut, supabase } from "./utils/supabase";
+import { ensureUserWorkspace, getAuthDisplayName, signOut, supabase, supabaseConfigError } from "./utils/supabase";
 import { archiveCompletedTask as archiveWorkflowCompletedTask, createWorkflowActualDates, createWorkflowDueDates, createWorkflowObjectives, createWorkflowStartedDates, DEFAULT_WORKFLOW_COLUMN_ID, getLocalDateString, getWorkflowMoveBlockReason, isTaskInCompletedArchive, moveTaskToWorkflowColumn } from "./workflow";
 import {
   deleteChemicalRecord,
@@ -63,6 +63,8 @@ function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem("kieu-assistant-theme") || "light");
 
   useEffect(() => {
+    if (!supabase) return;
+
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       setSession(currentSession);
     });
@@ -195,6 +197,10 @@ function App() {
   );
 
   if (session === undefined) {
+    if (supabaseConfigError) {
+      return <div className="storage-state storage-state-error">{supabaseConfigError}</div>;
+    }
+
     return <div className="storage-state">Đang kiểm tra đăng nhập...</div>;
   }
 
