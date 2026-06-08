@@ -71,7 +71,6 @@ function mapMember(row) {
     id: row.id,
     userId: row.user_id,
     name: row.display_name,
-    role: row.role,
   };
 }
 
@@ -186,7 +185,7 @@ function mapTasks(taskRows, relationRows, memberSource, labelSource) {
   });
 }
 
-export async function loadWorkspaceData(workspaceId) {
+export async function loadSharedData() {
   const [
     membersResult,
     companiesResult,
@@ -200,24 +199,22 @@ export async function loadWorkspaceData(workspaceId) {
     objectivesResult,
     commentsResult,
   ] = await Promise.all([
-    supabase.from("workspace_members").select("*").eq("workspace_id", workspaceId).order("created_at"),
-    supabase.from("companies").select("*").eq("workspace_id", workspaceId).order("created_at"),
-    supabase.from("chemicals").select("*").eq("workspace_id", workspaceId).order("created_at"),
-    supabase.from("labels").select("*").eq("workspace_id", workspaceId).order("created_at"),
-    supabase.from("workflow_columns").select("*").eq("workspace_id", workspaceId).order("position"),
-    supabase.from("tasks").select("*").eq("workspace_id", workspaceId).order("created_at"),
-    supabase.from("task_chemicals").select("*").eq("workspace_id", workspaceId),
-    supabase.from("task_labels").select("*").eq("workspace_id", workspaceId),
-    supabase.from("task_workflow_steps").select("*").eq("workspace_id", workspaceId),
+    supabase.from("members").select("*").order("created_at"),
+    supabase.from("companies").select("*").order("created_at"),
+    supabase.from("chemicals").select("*").order("created_at"),
+    supabase.from("labels").select("*").order("created_at"),
+    supabase.from("workflow_columns").select("*").order("position"),
+    supabase.from("tasks").select("*").order("created_at"),
+    supabase.from("task_chemicals").select("*"),
+    supabase.from("task_labels").select("*"),
+    supabase.from("task_workflow_steps").select("*"),
     supabase
       .from("task_objectives")
       .select("*")
-      .eq("workspace_id", workspaceId)
       .order("position"),
     supabase
       .from("task_comments")
       .select("*")
-      .eq("workspace_id", workspaceId)
       .order("created_at"),
   ]);
 
@@ -254,7 +251,7 @@ export async function loadWorkspaceData(workspaceId) {
   };
 }
 
-export async function loadWorkspaceTasks(workspaceId, dataContext) {
+export async function loadSharedTasks(dataContext) {
   const [
     tasksResult,
     taskChemicalsResult,
@@ -263,19 +260,17 @@ export async function loadWorkspaceTasks(workspaceId, dataContext) {
     objectivesResult,
     commentsResult,
   ] = await Promise.all([
-    supabase.from("tasks").select("*").eq("workspace_id", workspaceId).order("created_at"),
-    supabase.from("task_chemicals").select("*").eq("workspace_id", workspaceId),
-    supabase.from("task_labels").select("*").eq("workspace_id", workspaceId),
-    supabase.from("task_workflow_steps").select("*").eq("workspace_id", workspaceId),
+    supabase.from("tasks").select("*").order("created_at"),
+    supabase.from("task_chemicals").select("*"),
+    supabase.from("task_labels").select("*"),
+    supabase.from("task_workflow_steps").select("*"),
     supabase
       .from("task_objectives")
       .select("*")
-      .eq("workspace_id", workspaceId)
       .order("position"),
     supabase
       .from("task_comments")
       .select("*")
-      .eq("workspace_id", workspaceId)
       .order("created_at"),
   ]);
 
@@ -293,32 +288,30 @@ export async function loadWorkspaceTasks(workspaceId, dataContext) {
   );
 }
 
-export async function loadWorkspaceCompanies(workspaceId) {
+export async function loadSharedCompanies() {
   return assertResult(
-    await supabase.from("companies").select("*").eq("workspace_id", workspaceId).order("created_at"),
+    await supabase.from("companies").select("*").order("created_at"),
   ).map(mapCompany);
 }
 
-export async function loadWorkspaceChemicals(workspaceId) {
+export async function loadSharedChemicals() {
   return assertResult(
-    await supabase.from("chemicals").select("*").eq("workspace_id", workspaceId).order("created_at"),
+    await supabase.from("chemicals").select("*").order("created_at"),
   ).map(mapChemical);
 }
 
-export async function loadWorkspaceLabels(workspaceId) {
+export async function loadSharedLabels() {
   return assertResult(
-    await supabase.from("labels").select("*").eq("workspace_id", workspaceId).order("created_at"),
+    await supabase.from("labels").select("*").order("created_at"),
   ).map(mapLabel);
 }
 
-export async function saveWorkspaceMember(workspaceId, name) {
+export async function saveMemberRecord(name) {
   const row = assertResult(
     await supabase
-      .from("workspace_members")
+      .from("members")
       .insert({
-        workspace_id: workspaceId,
         display_name: name,
-        role: "member",
       })
       .select("*")
       .single(),
@@ -328,35 +321,31 @@ export async function saveWorkspaceMember(workspaceId, name) {
     id: row.id,
     userId: row.user_id,
     name: row.display_name,
-    role: row.role,
   };
 }
 
-export async function removeWorkspaceMember(workspaceId, memberId, replacementMemberId) {
+export async function removeMemberRecord(memberId, replacementMemberId) {
   assertResult(
     await supabase
       .from("tasks")
       .update({ assignee_member_id: replacementMemberId })
-      .eq("workspace_id", workspaceId)
       .eq("assignee_member_id", memberId),
   );
   assertResult(
     await supabase
-      .from("workspace_members")
+      .from("members")
       .delete()
-      .eq("workspace_id", workspaceId)
       .eq("id", memberId),
   );
 }
 
-export async function saveCompanyRecord(workspaceId, company) {
+export async function saveCompanyRecord(company) {
   const id = isUuid(company.id) ? company.id : createId();
   const row = assertResult(
     await supabase
       .from("companies")
       .upsert({
         id,
-        workspace_id: workspaceId,
         legacy_id: company.legacyId || (!isUuid(company.id) ? company.id : null),
         name: company.name,
         account_number: company.accountNumber,
@@ -371,20 +360,19 @@ export async function saveCompanyRecord(workspaceId, company) {
   return mapCompany(row);
 }
 
-export async function deleteCompanyRecord(workspaceId, companyId) {
+export async function deleteCompanyRecord(companyId) {
   assertResult(
-    await supabase.from("companies").delete().eq("workspace_id", workspaceId).eq("id", companyId),
+    await supabase.from("companies").delete().eq("id", companyId),
   );
 }
 
-export async function saveChemicalRecord(workspaceId, chemical) {
+export async function saveChemicalRecord(chemical) {
   const id = isUuid(chemical.id) ? chemical.id : createId();
   const row = assertResult(
     await supabase
       .from("chemicals")
       .upsert({
         id,
-        workspace_id: workspaceId,
         legacy_id: chemical.legacyId || (!isUuid(chemical.id) ? chemical.id : null),
         name: chemical.name,
         color: chemical.color,
@@ -396,20 +384,19 @@ export async function saveChemicalRecord(workspaceId, chemical) {
   return mapChemical(row);
 }
 
-export async function deleteChemicalRecord(workspaceId, chemicalId) {
+export async function deleteChemicalRecord(chemicalId) {
   assertResult(
-    await supabase.from("chemicals").delete().eq("workspace_id", workspaceId).eq("id", chemicalId),
+    await supabase.from("chemicals").delete().eq("id", chemicalId),
   );
 }
 
-export async function saveLabelRecord(workspaceId, label) {
+export async function saveLabelRecord(label) {
   const id = isUuid(label.id) ? label.id : createId();
   const row = assertResult(
     await supabase
       .from("labels")
       .upsert({
         id,
-        workspace_id: workspaceId,
         name: label.name,
         color: label.color,
       })
@@ -420,9 +407,9 @@ export async function saveLabelRecord(workspaceId, label) {
   return mapLabel(row);
 }
 
-export async function deleteLabelRecord(workspaceId, labelId) {
+export async function deleteLabelRecord(labelId) {
   assertResult(
-    await supabase.from("labels").delete().eq("workspace_id", workspaceId).eq("id", labelId),
+    await supabase.from("labels").delete().eq("id", labelId),
   );
 }
 
@@ -434,14 +421,13 @@ function getLabelId(data, name) {
   return data.labels.find((label) => label.name === name)?.id || null;
 }
 
-export async function saveTaskRecord(workspaceId, data, task) {
+export async function saveTaskRecord(data, task) {
   const id = isUuid(task.id) ? task.id : createId();
   const savedTask = { ...task, id };
 
   assertResult(
     await supabase.from("tasks").upsert({
       id,
-      workspace_id: workspaceId,
       legacy_id: task.legacyId || (!isUuid(task.id) ? task.id : null),
       task_key: task.key,
       created_on: task.createdAt || null,
@@ -471,7 +457,7 @@ export async function saveTaskRecord(workspaceId, data, task) {
   ];
   const deleteResults = await Promise.all(
     childTables.map((table) =>
-      supabase.from(table).delete().eq("workspace_id", workspaceId).eq("task_id", id),
+      supabase.from(table).delete().eq("task_id", id),
     ),
   );
   deleteResults.forEach(assertResult);
@@ -481,7 +467,6 @@ export async function saveTaskRecord(workspaceId, data, task) {
     inserts.push(
       supabase.from("task_chemicals").insert(
         task.chemicals.map((chemicalId) => ({
-          workspace_id: workspaceId,
           task_id: id,
           chemical_id: chemicalId,
         })),
@@ -494,7 +479,6 @@ export async function saveTaskRecord(workspaceId, data, task) {
     inserts.push(
       supabase.from("task_labels").insert(
         labelIds.map((labelId) => ({
-          workspace_id: workspaceId,
           task_id: id,
           label_id: labelId,
         })),
@@ -505,7 +489,6 @@ export async function saveTaskRecord(workspaceId, data, task) {
   inserts.push(
     supabase.from("task_workflow_steps").insert(
       workflowColumns.map((column) => ({
-        workspace_id: workspaceId,
         task_id: id,
         column_code: column.id,
         due_on: task.columnDueDates?.[column.id] || null,
@@ -519,7 +502,6 @@ export async function saveTaskRecord(workspaceId, data, task) {
     inserts.push(
       supabase.from("task_objectives").insert(
         task.objectives.map((objective, position) => ({
-          workspace_id: workspaceId,
           task_id: id,
           column_code: task.columnId,
           objective_code: objective.id,
@@ -539,7 +521,6 @@ export async function saveTaskRecord(workspaceId, data, task) {
       supabase.from("task_comments").insert(
         task.comments.map((comment) => ({
           id: isUuid(comment.id) ? comment.id : createId(),
-          workspace_id: workspaceId,
           task_id: id,
           legacy_id: comment.legacyId || (!isUuid(comment.id) ? comment.id : null),
           author_member_id: getMemberId(data, comment.author),
@@ -556,20 +537,19 @@ export async function saveTaskRecord(workspaceId, data, task) {
   return savedTask;
 }
 
-export async function deleteTaskRecord(workspaceId, taskId) {
+export async function deleteTaskRecord(taskId) {
   assertResult(
-    await supabase.from("tasks").delete().eq("workspace_id", workspaceId).eq("id", taskId),
+    await supabase.from("tasks").delete().eq("id", taskId),
   );
 }
 
-export async function saveCommentRecord(workspaceId, data, taskId, comment) {
+export async function saveCommentRecord(data, taskId, comment) {
   const id = isUuid(comment.id) ? comment.id : createId();
   const row = assertResult(
     await supabase
       .from("task_comments")
       .insert({
         id,
-        workspace_id: workspaceId,
         task_id: taskId,
         legacy_id: comment.legacyId || (!isUuid(comment.id) ? comment.id : null),
         author_member_id: getMemberId(data, comment.author),
@@ -634,51 +614,50 @@ function prepareImportData(rawData, user) {
   };
 }
 
-export async function replaceWorkspaceData(workspaceId, rawData, user) {
+export async function replaceSharedData(rawData, user) {
   const prepared = prepareImportData(rawData, user);
-  const current = await loadWorkspaceData(workspaceId);
-  const owner = current.memberRecords.find((member) => member.userId === user.id);
+  const current = await loadSharedData();
+  const currentMember = current.memberRecords.find((member) => member.userId === user.id);
 
-  assertResult(await supabase.from("tasks").delete().eq("workspace_id", workspaceId));
-  assertResult(await supabase.from("companies").delete().eq("workspace_id", workspaceId));
-  assertResult(await supabase.from("chemicals").delete().eq("workspace_id", workspaceId));
-  assertResult(await supabase.from("labels").delete().eq("workspace_id", workspaceId));
+  assertResult(await supabase.from("tasks").delete().not("id", "is", null));
+  assertResult(await supabase.from("companies").delete().not("id", "is", null));
+  assertResult(await supabase.from("chemicals").delete().not("id", "is", null));
+  assertResult(await supabase.from("labels").delete().not("id", "is", null));
   assertResult(
     await supabase
-      .from("workspace_members")
+      .from("members")
       .delete()
-      .eq("workspace_id", workspaceId)
       .is("user_id", null),
   );
 
-  const memberRecords = owner
-    ? [{ ...owner, name: getAuthDisplayName(user) }]
+  const memberRecords = currentMember
+    ? [{ ...currentMember, name: getAuthDisplayName(user) }]
     : [];
   for (const name of prepared.members) {
     if (memberRecords.some((member) => member.name === name)) continue;
-    memberRecords.push(await saveWorkspaceMember(workspaceId, name));
+    memberRecords.push(await saveMemberRecord(name));
   }
 
   const data = { ...prepared, memberRecords };
   for (const company of data.companies) {
-    await saveCompanyRecord(workspaceId, company);
+    await saveCompanyRecord(company);
   }
   for (const chemical of data.chemicals) {
-    await saveChemicalRecord(workspaceId, chemical);
+    await saveChemicalRecord(chemical);
   }
   for (const label of data.labels) {
-    await saveLabelRecord(workspaceId, label);
+    await saveLabelRecord(label);
   }
   for (const task of data.tasks) {
-    await saveTaskRecord(workspaceId, data, task);
+    await saveTaskRecord(data, task);
   }
 
   assertResult(
     await supabase
-      .from("workspaces")
+      .from("app_state")
       .update({ data_initialized: true })
-      .eq("id", workspaceId),
+      .eq("singleton", true),
   );
 
-  return loadWorkspaceData(workspaceId);
+  return loadSharedData();
 }

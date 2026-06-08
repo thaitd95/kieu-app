@@ -1,27 +1,36 @@
 # Supabase schema cho Kieu Assistant
 
-## Cac bang can co
+## Mo hinh du lieu dung chung
 
-1. `workspaces`: Nhom du lieu doc lap. Moi workspace thuoc mot tai khoan Supabase Auth.
-2. `workspace_members`: Nguoi phu trach trong app. `user_id` co the de trong cho thanh vien chua co tai khoan dang nhap.
+Tat ca tai khoan Supabase Auth da dang nhap doc va ghi cung mot bo du lieu.
+Schema khong con bang `workspaces`, khong con `workspace_id` va khong chia du
+lieu theo user.
+
+## Cac bang
+
+1. `app_state`: Trang thai khoi tao du lieu dung chung.
+2. `members`: Nguoi phu trach trong app. `user_id` lien ket tai khoan dang
+   nhap; gia tri nay co the de trong cho nguoi phu trach khong co tai khoan.
 3. `companies`: Danh muc Seller.
 4. `chemicals`: Danh muc hoa chat.
 5. `labels`: Danh muc nhan.
-6. `workflow_columns`: Sau trang thai `po`, `ps-coa`, `payment`, `documents`, `etd`, `completed`.
+6. `workflow_columns`: Sau trang thai `po`, `ps-coa`, `payment`, `documents`,
+   `etd`, `completed`.
 7. `tasks`: Thong tin chinh cua cong viec/PO.
 8. `task_chemicals`: Bang noi nhieu-nhieu giua task va hoa chat.
 9. `task_labels`: Bang noi nhieu-nhieu giua task va nhan.
-10. `task_workflow_steps`: Ngay du kien, ngay bat dau va ngay thuc te cua tung trang thai.
+10. `task_workflow_steps`: Ngay du kien, ngay bat dau va ngay thuc te cua tung
+    trang thai.
 11. `task_objectives`: Checklist chi tieu cua task theo tung trang thai.
 12. `task_comments`: Ghi chu/hoat dong cua task.
 
-Bao cao lead time va thanh toan la du lieu tinh tu cac bang tren, khong can luu thanh bang rieng.
+Bao cao lead time va thanh toan duoc tinh tu cac bang tren.
 
-## Mapping tu IndexedDB hien tai
+## Mapping tu IndexedDB
 
 | Du lieu hien tai | Bang/cot Supabase |
 | --- | --- |
-| `members[]` | `workspace_members.display_name` |
+| `members[]` | `members.display_name` |
 | `companies[]` | `companies`; ID cu luu trong `legacy_id` |
 | `chemicals[]` | `chemicals`; ID cu luu trong `legacy_id` |
 | `labels[]` | `labels` |
@@ -40,26 +49,27 @@ Bao cao lead time va thanh toan la du lieu tinh tu cac bang tren, khong can luu 
 | `comments[]` | `task_comments` |
 | `completedArchivedAt` | `tasks.completed_archived_on` |
 
-`memberListVersion` chi phuc vu migrate local data cu, khong can luu trong database.
+`app_state.data_initialized` dam bao IndexedDB chi duoc nhap len Supabase mot
+lan khi database chua co du lieu.
 
-`workspaces.data_initialized` danh dau workspace da duoc khoi tao. App chi nhap
-IndexedDB len Supabase mot lan khi cot nay la `false`; workspace da bi xoa sach
-co chu y se khong tu nap lai du lieu mau.
+## RLS va tai khoan
 
-## Thu tu import du lieu
+Tat ca bang public van bat RLS. Moi tai khoan thuoc role `authenticated` co
+quyen doc va ghi toan bo du lieu dung chung; role `anon` khong co quyen.
 
-1. Dang nhap bang Supabase Auth va tao mot row trong `workspaces`.
-2. Trigger se tu tao owner trong `workspace_members` va sau workflow columns.
-3. Import them members, companies, chemicals va labels.
-4. Import tasks sau khi da map ID cu sang UUID moi.
-5. Import cac bang noi, workflow steps, objectives va comments.
+RPC `ensure_app_user` tao record trong `members` cho tai khoan dang nhap neu
+chua co. Frontend goi RPC nay truoc khi tai du lieu.
 
-Migration nam tai:
+## Migration bo workspace
 
-`supabase/migrations/202606080001_create_kieu_app_schema.sql`
+Migration `202606080004_remove_workspaces.sql`:
 
-Tat ca bang public da bat RLS. Nguoi dung chi doc/ghi duoc du lieu cua workspace ma ho la thanh vien; chi owner duoc quan ly danh sach thanh vien.
+1. Gop du lieu cua tat ca workspace dang ton tai.
+2. Bo bang `workspaces`, `app_settings`, cac ham workspace va moi cot
+   `workspace_id`.
+3. Doi `workspace_members` thanh `members`.
+4. Tao lai khoa ngoai, unique index va RLS cho mo hinh dung chung.
+5. Neu ten danh muc hoac task key bi trung giua cac workspace cu, migration
+   them hau to UUID vao ban ghi trung de khong lam mat du lieu.
 
-Sau khi khoi tao, Supabase la nguon du lieu chinh. Cac thao tac task, Seller,
-hoa chat, nhan, thanh vien, workflow, checklist va comment duoc ghi vao bang
-tuong ung; IndexedDB chi duoc doc trong lan migrate dau tien.
+Can chay migration Supabase truoc khi deploy frontend moi.

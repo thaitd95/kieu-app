@@ -14,31 +14,31 @@ import { loadInitialData } from "./db";
 import { getTaskPriority } from "./deadline";
 import { normalizePaymentMethod, normalizeShippingMethod, paymentMethods, shippingMethods } from "./reportData";
 import { sanitizeRichText, stripRichText } from "./richText";
-import { ensureUserWorkspace, getAuthDisplayName, signOut, supabase, supabaseConfigError } from "./utils/supabase";
+import { ensureAppUser, getAuthDisplayName, signOut, supabase, supabaseConfigError } from "./utils/supabase";
 import { archiveCompletedTask as archiveWorkflowCompletedTask, createWorkflowActualDates, createWorkflowDueDates, createWorkflowObjectives, createWorkflowStartedDates, DEFAULT_WORKFLOW_COLUMN_ID, getLocalDateString, getWorkflowMoveBlockReason, isTaskInCompletedArchive, moveTaskToWorkflowColumn } from "./workflow";
 import {
   deleteChemicalRecord,
   deleteCompanyRecord,
   deleteLabelRecord,
   deleteTaskRecord,
-  loadWorkspaceChemicals,
-  loadWorkspaceCompanies,
-  loadWorkspaceData,
-  loadWorkspaceLabels,
-  loadWorkspaceTasks,
-  removeWorkspaceMember,
-  replaceWorkspaceData,
+  loadSharedChemicals,
+  loadSharedCompanies,
+  loadSharedData,
+  loadSharedLabels,
+  loadSharedTasks,
+  removeMemberRecord,
+  replaceSharedData,
   saveChemicalRecord,
   saveCommentRecord,
   saveCompanyRecord,
   saveLabelRecord,
   saveTaskRecord,
-  saveWorkspaceMember,
-} from "./workspaceData";
+  saveMemberRecord,
+} from "./sharedData";
 
 function App() {
   const [session, setSession] = useState(undefined);
-  const [workspace, setWorkspace] = useState(null);
+  const [appState, setAppState] = useState(null);
   const [authError, setAuthError] = useState("");
   const [data, setData] = useState(null);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
@@ -81,7 +81,7 @@ function App() {
     } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       setSession(currentSession);
       if (!currentSession) {
-        setWorkspace(null);
+        setAppState(null);
         setData(null);
         setIsDataReady(false);
       }
@@ -96,12 +96,12 @@ function App() {
     let isActive = true;
     setAuthError("");
 
-    ensureUserWorkspace(session.user)
-      .then((currentWorkspace) => {
-        if (isActive) setWorkspace(currentWorkspace);
+    ensureAppUser(session.user)
+      .then((currentAppState) => {
+        if (isActive) setAppState(currentAppState);
       })
       .catch((error) => {
-        if (isActive) setAuthError(`Không thể mở workspace Supabase. ${error.message}`);
+        if (isActive) setAuthError(`Không thể khởi tạo dữ liệu Supabase. ${error.message}`);
       });
 
     return () => {
@@ -110,23 +110,23 @@ function App() {
   }, [session?.user?.id]);
 
   useEffect(() => {
-    if (!session?.user || !workspace) return;
+    if (!session?.user || !appState) return;
 
     let isActive = true;
     setStorageError("");
 
     async function loadData() {
-      let workspaceData;
-      if (workspace.data_initialized) {
-        workspaceData = await loadWorkspaceData(workspace.id);
+      let sharedData;
+      if (appState.data_initialized) {
+        sharedData = await loadSharedData();
       } else {
         const storedData = await loadInitialData(initialData);
-        workspaceData = await replaceWorkspaceData(workspace.id, storedData, session.user);
-        setWorkspace((current) => ({ ...current, data_initialized: true }));
+        sharedData = await replaceSharedData(storedData, session.user);
+        setAppState((current) => ({ ...current, data_initialized: true }));
       }
 
       if (!isActive) return;
-      setData(workspaceData);
+      setData(sharedData);
       setIsDataReady(true);
     }
 
@@ -137,7 +137,7 @@ function App() {
     return () => {
       isActive = false;
     };
-  }, [session?.user?.id, workspace?.id, workspace?.data_initialized]);
+  }, [session?.user?.id, appState?.data_initialized]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -151,7 +151,7 @@ function App() {
   useEffect(() => {
     if (previousViewRef.current === activeView) return;
     previousViewRef.current = activeView;
-    if (!workspace?.id || !isDataReady) return;
+    if (!isDataReady) return;
     if (activeView === "reports") {
       refreshRequestRef.current += 1;
       setIsRefreshing(false);
@@ -164,27 +164,27 @@ function App() {
 
     const refreshByView = {
       board: () =>
-        loadWorkspaceTasks(workspace.id, currentData).then((tasks) => (current) => ({
+        loadSharedTasks(currentData).then((tasks) => (current) => ({
           ...current,
           tasks,
         })),
       completedArchive: () =>
-        loadWorkspaceTasks(workspace.id, currentData).then((tasks) => (current) => ({
+        loadSharedTasks(currentData).then((tasks) => (current) => ({
           ...current,
           tasks,
         })),
       chemicals: () =>
-        loadWorkspaceChemicals(workspace.id).then((chemicals) => (current) => ({
+        loadSharedChemicals().then((chemicals) => (current) => ({
           ...current,
           chemicals,
         })),
       companies: () =>
-        loadWorkspaceCompanies(workspace.id).then((companies) => (current) => ({
+        loadSharedCompanies().then((companies) => (current) => ({
           ...current,
           companies,
         })),
       labels: () =>
-        loadWorkspaceLabels(workspace.id).then((labels) => (current) => ({
+        loadSharedLabels().then((labels) => (current) => ({
           ...current,
           labels,
         })),
@@ -212,7 +212,7 @@ function App() {
       .finally(() => {
         if (refreshRequestRef.current === requestId) setIsRefreshing(false);
       });
-  }, [activeView, isDataReady, workspace?.id]);
+  }, [activeView, isDataReady]);
 
   useEffect(() => {
     const timerId = window.setInterval(() => setCurrentTime(Date.now()), 60 * 1000);
@@ -221,10 +221,12 @@ function App() {
 
   const currentUser = useMemo(
     () => ({
-      name: session?.user ? getAuthDisplayName(session.user) : defaultCurrentUser.name,
-      role: "App Owner",
+      name:
+        data?.memberRecords?.find((member) => member.userId === session?.user?.id)?.name ||
+        (session?.user ? getAuthDisplayName(session.user) : defaultCurrentUser.name),
+      role: "Thành viên",
     }),
-    [session?.user],
+    [data?.memberRecords, session?.user],
   );
   const members = data?.members || defaultMembers;
   const customMembers = members.filter((person) => person !== currentUser.name);
@@ -294,7 +296,7 @@ function App() {
     return <div className="storage-state storage-state-error">{authError || storageError}</div>;
   }
 
-  if (!workspace || !isDataReady || !data) {
+  if (!appState || !isDataReady || !data) {
     return (
       <div className="storage-state">
         <span className="loading-spinner loading-spinner-large" />
@@ -405,7 +407,7 @@ function App() {
     };
 
     try {
-      const savedTask = await saveTaskRecord(workspace.id, data, normalized);
+      const savedTask = await saveTaskRecord(data, normalized);
       updateData((current) => ({
         ...current,
         tasks:
@@ -424,7 +426,7 @@ function App() {
     if (!taskDraft || !window.confirm(`Xóa công việc ${taskDraft.key}?`)) return;
 
     try {
-      await deleteTaskRecord(workspace.id, taskDraft.id);
+      await deleteTaskRecord(taskDraft.id);
       updateData((current) => ({
         ...current,
         tasks: current.tasks.filter((task) => task.id !== taskDraft.id),
@@ -439,7 +441,7 @@ function App() {
   async function deleteTaskFromBoard(task) {
     if (!window.confirm(`Xóa công việc ${task.key}?`)) return;
     try {
-      await deleteTaskRecord(workspace.id, task.id);
+      await deleteTaskRecord(task.id);
       updateData((current) => ({
         ...current,
         tasks: current.tasks.filter((item) => item.id !== task.id),
@@ -459,7 +461,7 @@ function App() {
 
     const movedTask = moveTaskToWorkflowColumn(task, columnId);
     try {
-      await saveTaskRecord(workspace.id, data, movedTask);
+      await saveTaskRecord(data, movedTask);
       updateData((current) => ({
         ...current,
         tasks: current.tasks.map((item) => (item.id === taskId ? movedTask : item)),
@@ -473,7 +475,7 @@ function App() {
     const task = data.tasks.find((item) => item.id === taskId);
     const archivedTask = archiveWorkflowCompletedTask(task, currentTime);
     try {
-      await saveTaskRecord(workspace.id, data, archivedTask);
+      await saveTaskRecord(data, archivedTask);
       updateData((current) => ({
         ...current,
         tasks: current.tasks.map((item) => (item.id === taskId ? archivedTask : item)),
@@ -487,7 +489,7 @@ function App() {
     const task = data.tasks.find((item) => item.id === taskId);
     const assignedTask = { ...task, assignee };
     try {
-      await saveTaskRecord(workspace.id, data, assignedTask);
+      await saveTaskRecord(data, assignedTask);
       updateData((current) => ({
         ...current,
         tasks: current.tasks.map((item) => (item.id === taskId ? assignedTask : item)),
@@ -504,7 +506,7 @@ function App() {
     try {
       const member =
         data.memberRecords.find((item) => item.name === name) ||
-        await saveWorkspaceMember(workspace.id, name);
+        await saveMemberRecord(name);
       updateData((current) => ({
         ...current,
         members: current.members.includes(name) ? current.members : [...current.members, name],
@@ -523,11 +525,11 @@ function App() {
     if (!customMembers.includes(name) || !window.confirm(`Xóa người phụ trách ${name}?`)) return;
 
     const member = data.memberRecords.find((item) => item.name === name);
-    const owner = data.memberRecords.find((item) => item.name === currentUser.name);
-    if (!member || !owner) return;
+    const currentMember = data.memberRecords.find((item) => item.name === currentUser.name);
+    if (!member || !currentMember) return;
 
     try {
-      await removeWorkspaceMember(workspace.id, member.id, owner.id);
+      await removeMemberRecord(member.id, currentMember.id);
       updateData((current) => ({
         ...current,
         members: current.members.filter((person) => person !== name),
@@ -558,7 +560,7 @@ function App() {
     };
 
     try {
-      const savedChemical = existing || await saveChemicalRecord(workspace.id, chemical);
+      const savedChemical = existing || await saveChemicalRecord(chemical);
       updateData((current) => ({
         ...current,
         chemicals: existing ? current.chemicals : [...current.chemicals, savedChemical],
@@ -582,7 +584,7 @@ function App() {
     if (!window.confirm(`Xóa hóa chất ${chemical.name}?`)) return;
 
     try {
-      await deleteChemicalRecord(workspace.id, chemicalId);
+      await deleteChemicalRecord(chemicalId);
       updateData((current) => ({
         ...current,
         chemicals: current.chemicals.filter((item) => item.id !== chemicalId),
@@ -618,7 +620,7 @@ function App() {
     };
 
     try {
-      const savedCompany = await saveCompanyRecord(workspace.id, normalized);
+      const savedCompany = await saveCompanyRecord(normalized);
       updateData((current) => ({
         ...current,
         companies: draft.id
@@ -645,7 +647,7 @@ function App() {
     if (!window.confirm(`Xóa Seller ${company.name}?`)) return;
 
     try {
-      await deleteCompanyRecord(workspace.id, companyId);
+      await deleteCompanyRecord(companyId);
       updateData((current) => ({
         ...current,
         companies: current.companies.filter((item) => item.id !== companyId),
@@ -670,7 +672,7 @@ function App() {
     }
 
     try {
-      const savedLabel = await saveLabelRecord(workspace.id, {
+      const savedLabel = await saveLabelRecord({
         id: crypto.randomUUID(),
         name: label,
         color,
@@ -703,7 +705,7 @@ function App() {
     }
 
     try {
-      const savedLabel = await saveLabelRecord(workspace.id, {
+      const savedLabel = await saveLabelRecord({
         ...currentItem,
         name: nextLabel,
         color: color || currentItem.color,
@@ -740,7 +742,7 @@ function App() {
     if (!labelRecord) return;
 
     try {
-      await deleteLabelRecord(workspace.id, labelRecord.id);
+      await deleteLabelRecord(labelRecord.id);
       updateData((current) => ({
         ...current,
         labels: current.labels.filter((item) => item.id !== labelRecord.id),
@@ -782,7 +784,6 @@ function App() {
 
     try {
       const savedComment = await saveCommentRecord(
-        workspace.id,
         data,
         taskDraft.id,
         comment,

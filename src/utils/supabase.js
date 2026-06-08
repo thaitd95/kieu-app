@@ -39,27 +39,14 @@ export async function signOut() {
   if (error) throw error;
 }
 
-export async function ensureUserWorkspace(user) {
+export async function ensureAppUser(user) {
   const client = getSupabaseClient();
-  const { data: existingWorkspace, error: selectError } = await client
-    .from("workspaces")
-    .select("id, name, data_initialized")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (selectError) throw selectError;
-  if (existingWorkspace) return existingWorkspace;
-
-  const { data: workspace, error: insertError } = await client
-    .from("workspaces")
-    .insert({
-      name: "KieuAssistant",
-      owner_user_id: user.id,
+  const { data: appState, error } = await client
+    .rpc("ensure_app_user", {
+      requested_display_name: getAuthDisplayName(user),
     })
-    .select("id, name, data_initialized")
     .single();
 
-  if (insertError) throw insertError;
-  return workspace;
+  if (error) throw error;
+  return appState;
 }
