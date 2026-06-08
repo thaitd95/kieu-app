@@ -37,6 +37,7 @@ Bao cao lead time va thanh toan duoc tinh tu cac bang tren.
 | `columns[]` | `workflow_columns` |
 | `tasks[].id` | `tasks.id`; ID cu duoc thay bang UUID neu can |
 | `tasks[].key` | `tasks.task_key` |
+| `tasks[].createdAt` | `tasks.created_at` |
 | `assignee` | `tasks.assignee_member_id` |
 | `companyId` | `tasks.company_id` |
 | `chemicals[]` | `task_chemicals` |

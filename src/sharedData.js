@@ -37,6 +37,16 @@ function formatCommentDate(value) {
   }).format(date);
 }
 
+function formatDateOnly(value) {
+  if (!value) return "";
+
+  return String(value).slice(0, 10);
+}
+
+function toCreatedAtTimestamp(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value || "") ? `${value}T00:00:00.000Z` : undefined;
+}
+
 function mapCompany(row) {
   return {
     id: row.id,
@@ -149,7 +159,7 @@ function mapTasks(taskRows, relationRows, memberSource, labelSource) {
     return {
       id: task.id,
       key: task.task_key,
-      createdAt: task.created_on || "",
+      createdAt: formatDateOnly(task.created_at),
       title: task.title,
       description: task.description_html,
       type: task.task_type,
@@ -423,7 +433,7 @@ export async function saveTaskRecord(data, task) {
     await supabase.from("tasks").upsert({
       id,
       task_key: task.key,
-      created_on: task.createdAt || null,
+      created_at: toCreatedAtTimestamp(task.createdAt),
       title: task.title,
       description_html: task.description,
       task_type: task.type || "task",
