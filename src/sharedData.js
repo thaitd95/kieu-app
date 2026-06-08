@@ -40,7 +40,6 @@ function formatCommentDate(value) {
 function mapCompany(row) {
   return {
     id: row.id,
-    legacyId: row.legacy_id || "",
     name: row.name,
     accountNumber: row.account_number,
     officeAddress: row.office_address,
@@ -52,7 +51,6 @@ function mapCompany(row) {
 function mapChemical(row) {
   return {
     id: row.id,
-    legacyId: row.legacy_id || "",
     name: row.name,
     color: row.color,
   };
@@ -138,7 +136,6 @@ function mapTasks(taskRows, relationRows, memberSource, labelSource) {
     const values = taskComments.get(row.task_id) || [];
     values.push({
       id: row.id,
-      legacyId: row.legacy_id || "",
       author: memberNames.get(row.author_member_id) || row.author_name,
       text: row.body,
       createdAt: row.legacy_created_at_text || formatCommentDate(row.created_at),
@@ -151,7 +148,6 @@ function mapTasks(taskRows, relationRows, memberSource, labelSource) {
 
     return {
       id: task.id,
-      legacyId: task.legacy_id || "",
       key: task.task_key,
       createdAt: task.created_on || "",
       title: task.title,
@@ -346,7 +342,6 @@ export async function saveCompanyRecord(company) {
       .from("companies")
       .upsert({
         id,
-        legacy_id: company.legacyId || (!isUuid(company.id) ? company.id : null),
         name: company.name,
         account_number: company.accountNumber,
         office_address: company.officeAddress,
@@ -373,7 +368,6 @@ export async function saveChemicalRecord(chemical) {
       .from("chemicals")
       .upsert({
         id,
-        legacy_id: chemical.legacyId || (!isUuid(chemical.id) ? chemical.id : null),
         name: chemical.name,
         color: chemical.color,
       })
@@ -428,7 +422,6 @@ export async function saveTaskRecord(data, task) {
   assertResult(
     await supabase.from("tasks").upsert({
       id,
-      legacy_id: task.legacyId || (!isUuid(task.id) ? task.id : null),
       task_key: task.key,
       created_on: task.createdAt || null,
       title: task.title,
@@ -522,7 +515,6 @@ export async function saveTaskRecord(data, task) {
         task.comments.map((comment) => ({
           id: isUuid(comment.id) ? comment.id : createId(),
           task_id: id,
-          legacy_id: comment.legacyId || (!isUuid(comment.id) ? comment.id : null),
           author_member_id: getMemberId(data, comment.author),
           author_name: comment.author,
           body: comment.text,
@@ -551,7 +543,6 @@ export async function saveCommentRecord(data, taskId, comment) {
       .insert({
         id,
         task_id: taskId,
-        legacy_id: comment.legacyId || (!isUuid(comment.id) ? comment.id : null),
         author_member_id: getMemberId(data, comment.author),
         author_name: comment.author,
         body: comment.text,
@@ -564,7 +555,6 @@ export async function saveCommentRecord(data, taskId, comment) {
   return {
     ...comment,
     id: row.id,
-    legacyId: row.legacy_id || "",
   };
 }
 
@@ -577,12 +567,12 @@ function prepareImportData(rawData, user) {
   const companies = normalized.companies.map((company) => {
     const id = isUuid(company.id) ? company.id : createId();
     companyIds.set(company.id, id);
-    return { ...company, id, legacyId: isUuid(company.id) ? company.legacyId : company.id };
+    return { ...company, id };
   });
   const chemicals = normalized.chemicals.map((chemical) => {
     const id = isUuid(chemical.id) ? chemical.id : createId();
     chemicalIds.set(chemical.id, id);
-    return { ...chemical, id, legacyId: isUuid(chemical.id) ? chemical.legacyId : chemical.id };
+    return { ...chemical, id };
   });
   const labels = normalized.labels.map((label) => ({
     ...label,
@@ -602,13 +592,11 @@ function prepareImportData(rawData, user) {
     tasks: normalized.tasks.map((task) => ({
       ...task,
       id: isUuid(task.id) ? task.id : createId(),
-      legacyId: isUuid(task.id) ? task.legacyId : task.id,
       companyId: companyIds.get(task.companyId) || "",
       chemicals: task.chemicals.map((id) => chemicalIds.get(id)).filter(Boolean),
       comments: task.comments.map((comment) => ({
         ...comment,
         id: isUuid(comment.id) ? comment.id : createId(),
-        legacyId: isUuid(comment.id) ? comment.legacyId : comment.id,
       })),
     })),
   };

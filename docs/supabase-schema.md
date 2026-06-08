@@ -31,11 +31,11 @@ Bao cao lead time va thanh toan duoc tinh tu cac bang tren.
 | Du lieu hien tai | Bang/cot Supabase |
 | --- | --- |
 | `members[]` | `members.display_name` |
-| `companies[]` | `companies`; ID cu luu trong `legacy_id` |
-| `chemicals[]` | `chemicals`; ID cu luu trong `legacy_id` |
+| `companies[]` | `companies`; ID cu duoc map sang UUID moi khi import |
+| `chemicals[]` | `chemicals`; ID cu duoc map sang UUID moi khi import |
 | `labels[]` | `labels` |
 | `columns[]` | `workflow_columns` |
-| `tasks[].id` | `tasks.legacy_id` |
+| `tasks[].id` | `tasks.id`; ID cu duoc thay bang UUID neu can |
 | `tasks[].key` | `tasks.task_key` |
 | `assignee` | `tasks.assignee_member_id` |
 | `companyId` | `tasks.company_id` |
