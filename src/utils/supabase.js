@@ -34,22 +34,6 @@ export async function signInWithPassword(email, password) {
   return data;
 }
 
-export async function signUpWithPassword({ email, fullName, password }) {
-  const { data, error } = await getSupabaseClient().auth.signUp({
-    email: email.trim(),
-    password,
-    options: {
-      data: {
-        full_name: fullName.trim(),
-      },
-      emailRedirectTo: window.location.origin,
-    },
-  });
-
-  if (error) throw error;
-  return data;
-}
-
 export async function signOut() {
   const { error } = await getSupabaseClient().auth.signOut();
   if (error) throw error;

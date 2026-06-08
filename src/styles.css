@@ -85,9 +85,6 @@ button { cursor: pointer; }
 .auth-heading { padding: 25px 0 18px; }
 .auth-heading h1 { font-size: 24px; }
 .auth-heading > p:last-child { margin: 7px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.55; }
-.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 19px; padding: 3px; border-radius: 6px; background: var(--surface-muted); }
-.auth-tabs button { height: 34px; color: var(--text-muted); border: 0; border-radius: 4px; background: transparent; font-size: 12px; font-weight: 700; }
-.auth-tabs button.active { color: var(--primary); background: var(--surface); box-shadow: 0 1px 3px rgba(9,30,66,.12); }
 .auth-form { display: grid; gap: 14px; }
 .auth-form label { display: grid; gap: 6px; }
 .auth-form label > span { color: var(--text-secondary); font-size: 11px; font-weight: 700; }
@@ -95,7 +92,6 @@ button { cursor: pointer; }
 .auth-form input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 16%, transparent); }
 .auth-message { margin: 0; padding: 9px 10px; border-radius: 5px; font-size: 11px; line-height: 1.5; }
 .auth-error { color: var(--danger); background: var(--surface-danger); }
-.auth-notice { color: #216e4e; background: #dcfff1; }
 .auth-submit { width: 100%; height: 40px; margin-top: 3px; }
 
 .app-shell { display: flex; min-height: 100vh; overflow: hidden; }
