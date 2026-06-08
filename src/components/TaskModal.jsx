@@ -344,10 +344,7 @@ export default function TaskModal({
 							taskDraft={taskDraft}
 						/>
 						<div className='activity-header'>
-							<h3 className='section-title'>Hoạt động</h3>
-							<button className='sort-button'>
-								Mới nhất <Icon name='down' size={13} />
-							</button>
+							<h3 className='section-title'>Ghi chú</h3>
 						</div>
 						<div className='comment-compose'>
 							<Avatar
