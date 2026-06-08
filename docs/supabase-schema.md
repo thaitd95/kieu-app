@@ -8,23 +8,22 @@ lieu theo user.
 
 ## Cac bang
 
-1. `app_state`: Trang thai khoi tao du lieu dung chung.
-2. `members`: Nguoi phu trach trong app. `user_id` lien ket tai khoan dang
+1. `members`: Nguoi phu trach trong app. `user_id` lien ket tai khoan dang
    nhap; gia tri nay co the de trong cho nguoi phu trach khong co tai khoan.
-3. `companies`: Danh muc Seller.
-4. `chemicals`: Danh muc hoa chat.
-5. `labels`: Danh muc nhan.
-6. `workflow_columns`: Sau trang thai `po`, `ps-coa`, `payment`, `documents`,
+2. `companies`: Danh muc Seller.
+3. `chemicals`: Danh muc hoa chat.
+4. `labels`: Danh muc nhan.
+5. `workflow_columns`: Sau trang thai `po`, `ps-coa`, `payment`, `documents`,
    `etd`, `completed`.
-7. `tasks`: Thong tin chinh cua cong viec/PO. Khong luu `task_type` va
+6. `tasks`: Thong tin chinh cua cong viec/PO. Khong luu `task_type` va
    `priority`; do uu tien duoc tinh truc tiep tren frontend tu deadline.
-8. `task_chemicals`: Bang noi nhieu-nhieu giua task va hoa chat.
-9. `task_labels`: Bang noi nhieu-nhieu giua task va nhan.
-10. `task_workflow_steps`: Moi task co mot row; cot `steps` luu ngay du kien
+7. `task_chemicals`: Bang noi nhieu-nhieu giua task va hoa chat.
+8. `task_labels`: Bang noi nhieu-nhieu giua task va nhan.
+9. `task_workflow_steps`: Moi task co mot row; cot `steps` luu ngay du kien
     va ngay thuc te cua tat ca trang thai duoi dang JSON object.
-11. `task_objectives`: Moi task co mot row; cot `objectives` luu toan bo
+10. `task_objectives`: Moi task co mot row; cot `objectives` luu toan bo
     checklist theo tung trang thai duoi dang JSON object.
-12. `task_comments`: Ghi chu/hoat dong cua task.
+11. `task_comments`: Ghi chu/hoat dong cua task.
 
 Bao cao lead time va thanh toan duoc tinh tu cac bang tren.
 
@@ -38,7 +37,7 @@ Bao cao lead time va thanh toan duoc tinh tu cac bang tren.
 | `labels[]` | `labels` |
 | `columns[]` | `workflow_columns` |
 | `tasks[].id` | `tasks.id`; ID cu duoc thay bang UUID neu can |
-| `tasks[].key` | `tasks.task_key` |
+| `tasks[].key` | `tasks.task_key`; Supabase tu cap bang sequence |
 | `tasks[].createdAt` | `tasks.created_at` |
 | `assignee` | `tasks.assignee_member_id` |
 | `companyId` | `tasks.company_id` |
@@ -51,16 +50,14 @@ Bao cao lead time va thanh toan duoc tinh tu cac bang tren.
 | `comments[]` | `task_comments` |
 | `completedArchivedAt` | `tasks.completed_archived_on` |
 
-`app_state.data_initialized` dam bao IndexedDB chi duoc nhap len Supabase mot
-lan khi database chua co du lieu.
-
 ## RLS va tai khoan
 
 Tat ca bang public van bat RLS. Moi tai khoan thuoc role `authenticated` co
 quyen doc va ghi toan bo du lieu dung chung; role `anon` khong co quyen.
 
 RPC `ensure_app_user` tao record trong `members` cho tai khoan dang nhap neu
-chua co. Frontend goi RPC nay truoc khi tai du lieu.
+chua co. Frontend goi RPC nay truoc khi tai du lieu. Ung dung khong con luong
+khoi tao hay import du lieu tu IndexedDB.
 
 ## Migration bo workspace
 
@@ -129,3 +126,7 @@ row. Cot `steps jsonb` luon co du 6 trang thai; moi trang thai chi luu
 Migration `202606090009_simplify_tasks_and_workflow_steps.sql` gom cac row
 step cu thanh JSON theo task, bo `started_on`, va xoa `task_type` cung
 `priority` khoi bang `tasks`.
+
+Migration `202606090011_remove_initialization_and_generate_task_keys.sql` xoa
+`app_state`, don gian hoa `ensure_app_user`, va cap `task_key` bang sequence
+trong PostgreSQL de tranh trung ma khi nhieu user tao task cung luc.

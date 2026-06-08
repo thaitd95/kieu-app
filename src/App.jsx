@@ -9,8 +9,7 @@ import { BoardHeader, Sidebar, Topbar } from "./components/Layout";
 import ReportManagement from "./components/ReportManagement";
 import TaskBoard, { CompletedArchiveSection } from "./components/TaskBoard";
 import TaskModal from "./components/TaskModal";
-import { chemicalColors, columnColors, currentUser as defaultCurrentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, initialData, labelColors } from "./data";
-import { loadInitialData } from "./db";
+import { chemicalColors, columnColors, currentUser as defaultCurrentUser, defaultChemicalColor, defaultLabelColor, defaultMembers, labelColors } from "./data";
 import { getTaskPriority } from "./deadline";
 import { normalizePaymentMethod, normalizeShippingMethod, paymentMethods, shippingMethods } from "./reportData";
 import { sanitizeRichText, stripRichText } from "./richText";
@@ -27,7 +26,6 @@ import {
   loadSharedLabels,
   loadSharedTasks,
   removeMemberRecord,
-  replaceSharedData,
   saveChemicalRecord,
   saveCommentRecord,
   saveCompanyRecord,
@@ -38,7 +36,7 @@ import {
 
 function App() {
   const [session, setSession] = useState(undefined);
-  const [appState, setAppState] = useState(null);
+  const [isAppUserReady, setIsAppUserReady] = useState(false);
   const [authError, setAuthError] = useState("");
   const [data, setData] = useState(null);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
@@ -81,7 +79,7 @@ function App() {
     } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       setSession(currentSession);
       if (!currentSession) {
-        setAppState(null);
+        setIsAppUserReady(false);
         setData(null);
         setIsDataReady(false);
       }
@@ -95,10 +93,11 @@ function App() {
 
     let isActive = true;
     setAuthError("");
+    setIsAppUserReady(false);
 
     ensureAppUser(session.user)
-      .then((currentAppState) => {
-        if (isActive) setAppState(currentAppState);
+      .then(() => {
+        if (isActive) setIsAppUserReady(true);
       })
       .catch((error) => {
         if (isActive) setAuthError(`Không thể khởi tạo dữ liệu Supabase. ${error.message}`);
@@ -110,20 +109,13 @@ function App() {
   }, [session?.user?.id]);
 
   useEffect(() => {
-    if (!session?.user || !appState) return;
+    if (!session?.user || !isAppUserReady) return;
 
     let isActive = true;
     setStorageError("");
 
     async function loadData() {
-      let sharedData;
-      if (appState.data_initialized) {
-        sharedData = await loadSharedData();
-      } else {
-        const storedData = await loadInitialData(initialData);
-        sharedData = await replaceSharedData(storedData, session.user);
-        setAppState((current) => ({ ...current, data_initialized: true }));
-      }
+      const sharedData = await loadSharedData();
 
       if (!isActive) return;
       setData(sharedData);
@@ -137,7 +129,7 @@ function App() {
     return () => {
       isActive = false;
     };
-  }, [session?.user?.id, appState?.data_initialized]);
+  }, [session?.user?.id, isAppUserReady]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -296,7 +288,7 @@ function App() {
     return <div className="storage-state storage-state-error">{authError || storageError}</div>;
   }
 
-  if (!appState || !isDataReady || !data) {
+  if (!isAppUserReady || !isDataReady || !data) {
     return (
       <div className="storage-state">
         <span className="loading-spinner loading-spinner-large" />
@@ -346,12 +338,10 @@ function App() {
   }
 
   function startNewTask() {
-    const sequence = Math.max(130, ...data.tasks.map((task) => Number(task.key.split("-")[1]) || 0)) + 1;
-
     setSelectedTaskId("new");
     setTaskDraft({
       id: crypto.randomUUID(),
-      key: `KA-${sequence}`,
+      key: "",
       createdAt: getLocalDateString(),
       title: "",
       description: "",

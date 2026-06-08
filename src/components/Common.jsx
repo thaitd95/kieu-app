@@ -60,14 +60,3 @@ export function Avatar({ name, size = "normal", index = 0 }) {
     </span>
   );
 }
-
-export function TypeIcon({ type }) {
-  const meta = {
-    story: { symbol: "◆", className: "type-story" },
-    task: { symbol: "✓", className: "type-task" },
-    bug: { symbol: "●", className: "type-bug" },
-  };
-  const selected = meta[type] || meta.task;
-
-  return <span className={`type-icon ${selected.className}`}>{selected.symbol}</span>;
-}

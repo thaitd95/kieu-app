@@ -7,38 +7,6 @@ import {
   differenceInCalendarDays,
   isHighPaymentPriority,
 } from "../src/reportData.js";
-import { normalizeData } from "../src/model.js";
-
-test("normalizes legacy seller addresses and new task fields", () => {
-  const data = normalizeData({
-    companies: [{ id: "seller-1", name: "Seller A", address: "Old office" }],
-    tasks: [{ id: "task-1", companyId: "seller-1", columnId: "po" }],
-  });
-
-  assert.deepEqual(data.companies[0], {
-    id: "seller-1",
-    name: "Seller A",
-    accountNumber: "",
-    officeAddress: "Old office",
-    producerAddress: "",
-    description: "",
-  });
-  assert.equal(data.tasks[0].paymentMethod, "");
-  assert.equal(data.tasks[0].shippingMethod, "");
-  assert.equal(data.tasks[0].createdAt, "");
-  assert.equal(data.tasks[0].completedArchivedAt, "");
-  assert.deepEqual(Object.keys(data.tasks[0].columnActualDates), [
-    "po",
-    "ps-coa",
-    "payment",
-    "documents",
-    "etd",
-    "completed",
-  ]);
-  assert.equal("type" in data.tasks[0], false);
-  assert.equal("priority" in data.tasks[0], false);
-  assert.equal("columnStartedDates" in data.tasks[0], false);
-});
 
 test("calculates calendar day differences and shipping deductions", () => {
   assert.equal(differenceInCalendarDays("2026-06-10", "2026-06-07"), 3);

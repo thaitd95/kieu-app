@@ -217,8 +217,8 @@ export default function TaskModal({
 				className='task-modal'
 				onMouseDown={(event) => event.stopPropagation()}>
 				<header className='task-modal-header'>
-					<div className='issue-path'>
-						<span>{taskDraft.key}</span>
+						<div className='issue-path'>
+						<span>{taskDraft.key || 'Mới'}</span>
 						<Icon name='chevron' size={13} />
 						<span>
 							{selectedTaskId === 'new'
@@ -379,7 +379,6 @@ export default function TaskModal({
 											<span>{comment.createdAt}</span>
 										</p>
 										<p className='comment-text'>{comment.text}</p>
-										<button className='comment-action'>Phản hồi</button>
 									</div>
 								</div>
 							))}

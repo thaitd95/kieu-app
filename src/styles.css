@@ -31,9 +31,6 @@
   --dynamic-text-base: #172b4d;
   --priority-low: #0c66e4;
   --priority-high: #c9372c;
-  --type-task: #0c66e4;
-  --type-story: #22a06b;
-  --type-bug: #c9372c;
 }
 
 * { box-sizing: border-box; }
@@ -259,8 +256,6 @@ h1 { margin: 0; color: var(--text); font: 800 25px "Manrope", sans-serif; letter
 .company-detail small { color: var(--text-subtle); font-size: 8px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .company-detail strong { color: var(--primary); font-size: 11px; font-weight: 700; line-height: 1.35; }
 .chemical-chip { color: color-mix(in srgb, var(--chemical-color) 68%, var(--dynamic-text-base)); border: 1px solid color-mix(in srgb, var(--chemical-color) 38%, var(--surface)); background: color-mix(in srgb, var(--chemical-color) 12%, var(--surface)); font-weight: 600 !important; }
-.type-icon { display: inline-grid; width: 15px; height: 15px; place-items: center; border-radius: 3px; color: white; font-size: 8px; font-weight: 700; }
-.type-task { background: var(--type-task); }.type-story { background: var(--type-story); }.type-bug { background: var(--type-bug); font-size: 7px; }
 .label-list { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
 .label-list span { padding: 3px 5px; border: 1px solid color-mix(in srgb, var(--label-color) 38%, var(--surface)); border-radius: 3px; color: color-mix(in srgb, var(--label-color) 68%, var(--dynamic-text-base)); background: color-mix(in srgb, var(--label-color) 12%, var(--surface)); font-size: 9px; font-weight: 700; }
 .quick-assignee { display: flex; align-items: center; gap: 5px; width: fit-content; max-width: 100%; margin: 0 0 9px; padding: 2px 5px 2px 2px; border: 1px solid transparent; border-radius: 12px; background: var(--surface-subtle); cursor: pointer; }
@@ -275,8 +270,6 @@ h1 { margin: 0; color: var(--text); font: 800 25px "Manrope", sans-serif; letter
 .deadline { white-space: nowrap; }
 .deadline-overall { font-size: 9px; font-weight: 600; }
 .deadline-overdue { color: var(--danger); }
-.add-column-button { display: flex; align-items: center; gap: 7px; width: 185px; min-width: 185px; height: 42px; padding: 0 13px; color: var(--text-secondary); border: 1px dashed var(--border); border-radius: 6px; background: var(--surface-subtle); font-size: 12px; font-weight: 600; }
-.add-column-button:hover { border-color: var(--border-focus); background: var(--surface-accent); color: var(--primary); }
 
 .completed-archive-section { margin: 28px 34px; padding: 18px; border: 1px solid var(--border-subtle); border-radius: 9px; background: var(--surface); box-shadow: 0 1px 3px rgba(9,30,66,.08); }
 .completed-archive-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
@@ -322,7 +315,6 @@ h1 { margin: 0; color: var(--text); font: 800 25px "Manrope", sans-serif; letter
 .comment-author { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; color: var(--text-secondary); font-size: 11px; }
 .comment-author span { color: var(--text-faint); font-size: 10px; }
 .comment-text { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
-.comment-action { padding: 5px 0; color: var(--primary); border: 0; background: transparent; font-size: 10px; font-weight: 600; }
 .rich-text-editor { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); overflow: hidden; }
 .rich-text-editor:focus-within { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
 .rich-text-toolbar { display: flex; align-items: center; gap: 4px; padding: 6px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-subtle); }
@@ -351,12 +343,6 @@ h1 { margin: 0; color: var(--text); font: 800 25px "Manrope", sans-serif; letter
 .objective-content textarea { display: block; width: 100%; margin-top: 7px; padding: 7px 8px; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; outline: 0; resize: vertical; background: var(--surface); font-size: 11px; line-height: 1.45; }
 .objective-content textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
 .objective-empty { margin: 0; padding: 9px; color: var(--text-subtle); border: 1px dashed var(--border); border-radius: 4px; font-size: 11px; }
-.objective-add { display: flex; gap: 6px; margin-top: 7px; }
-.objective-add input { min-width: 0; height: 33px; flex: 1; padding: 0 8px; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; outline: 0; background: var(--surface); font-size: 12px; }
-.objective-add input:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
-.objective-add button { display: flex; align-items: center; gap: 3px; padding: 0 9px; color: var(--primary); border: 0; border-radius: 4px; background: var(--surface-accent); font-size: 11px; font-weight: 700; }
-.objective-add button:hover { background: var(--surface-accent-hover); }
-.objective-add button:disabled { cursor: default; opacity: .5; }
 .task-details { padding: 22px 20px; border-left: 1px solid var(--border-subtle); background: var(--surface-subtle); }
 .task-details h3 { margin: 24px 0 13px; color: var(--text-secondary); font-size: 12px; }
 .field { display: block; margin-bottom: 15px; }
@@ -496,7 +482,4 @@ h1 { margin: 0; color: var(--text); font: 800 25px "Manrope", sans-serif; letter
   --dynamic-text-base: #fff;
   --priority-low: #579dff;
   --priority-high: #f87168;
-  --type-task: #579dff;
-  --type-story: #4bce97;
-  --type-bug: #f87168;
 }

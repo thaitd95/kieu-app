@@ -1,4 +1,3 @@
-import { normalizeData } from "./model.js";
 import {
   createWorkflowActualDates,
   createWorkflowDueDates,
@@ -6,7 +5,7 @@ import {
   serializeWorkflowObjectiveMap,
   workflowColumns,
 } from "./workflow.js";
-import { getAuthDisplayName, supabase } from "./utils/supabase.js";
+import { supabase } from "./utils/supabase.js";
 
 function assertResult(result) {
   if (result.error) throw result.error;
@@ -439,32 +438,36 @@ export async function saveTaskRecord(data, task) {
     task.objectives,
     task.objectivesByColumn,
   );
+  const taskRow = assertResult(
+    await supabase
+      .from("tasks")
+      .upsert({
+        id,
+        ...(task.key ? { task_key: task.key } : {}),
+        created_at: toCreatedAtTimestamp(task.createdAt),
+        title: task.title,
+        description_html: task.description,
+        assignee_member_id: getMemberId(data, task.assignee),
+        po_number: task.poNumber,
+        quantity_text: task.quantity,
+        amount_text: task.amount,
+        incoterm: task.ex,
+        payment_method: task.paymentMethod,
+        shipping_method: task.shippingMethod,
+        company_id: task.companyId || null,
+        current_column_code: task.columnId,
+        completed_archived_on: task.completedArchivedAt || null,
+      })
+      .select("*")
+      .single(),
+  );
   const savedTask = {
     ...task,
     id,
+    key: taskRow.task_key,
     objectives: objectivesByColumn[task.columnId] || [],
     objectivesByColumn,
   };
-
-  assertResult(
-    await supabase.from("tasks").upsert({
-      id,
-      task_key: task.key,
-      created_at: toCreatedAtTimestamp(task.createdAt),
-      title: task.title,
-      description_html: task.description,
-      assignee_member_id: getMemberId(data, task.assignee),
-      po_number: task.poNumber,
-      quantity_text: task.quantity,
-      amount_text: task.amount,
-      incoterm: task.ex,
-      payment_method: task.paymentMethod,
-      shipping_method: task.shippingMethod,
-      company_id: task.companyId || null,
-      current_column_code: task.columnId,
-      completed_archived_on: task.completedArchivedAt || null,
-    }),
-  );
 
   const childTables = [
     "task_chemicals",
@@ -572,96 +575,4 @@ export async function saveCommentRecord(data, taskId, comment) {
     id: row.id,
     createdAt: formatCommentDate(row.created_at),
   };
-}
-
-function prepareImportData(rawData, user) {
-  const normalized = normalizeData(rawData);
-  const signedInName = getAuthDisplayName(user);
-  const companyIds = new Map();
-  const chemicalIds = new Map();
-
-  const companies = normalized.companies.map((company) => {
-    const id = isUuid(company.id) ? company.id : createId();
-    companyIds.set(company.id, id);
-    return { ...company, id };
-  });
-  const chemicals = normalized.chemicals.map((chemical) => {
-    const id = isUuid(chemical.id) ? chemical.id : createId();
-    chemicalIds.set(chemical.id, id);
-    return { ...chemical, id };
-  });
-  const labels = normalized.labels.map((label) => ({
-    ...label,
-    id: isUuid(label.id) ? label.id : createId(),
-  }));
-  const members = [
-    signedInName,
-    ...normalized.members.filter((name) => name !== signedInName),
-  ];
-
-  return {
-    ...normalized,
-    members,
-    companies,
-    chemicals,
-    labels,
-    tasks: normalized.tasks.map((task) => ({
-      ...task,
-      id: isUuid(task.id) ? task.id : createId(),
-      companyId: companyIds.get(task.companyId) || "",
-      chemicals: task.chemicals.map((id) => chemicalIds.get(id)).filter(Boolean),
-      comments: task.comments.map((comment) => ({
-        ...comment,
-        id: isUuid(comment.id) ? comment.id : createId(),
-      })),
-    })),
-  };
-}
-
-export async function replaceSharedData(rawData, user) {
-  const prepared = prepareImportData(rawData, user);
-  const current = await loadSharedData();
-  const currentMember = current.memberRecords.find((member) => member.userId === user.id);
-
-  assertResult(await supabase.from("tasks").delete().not("id", "is", null));
-  assertResult(await supabase.from("companies").delete().not("id", "is", null));
-  assertResult(await supabase.from("chemicals").delete().not("id", "is", null));
-  assertResult(await supabase.from("labels").delete().not("id", "is", null));
-  assertResult(
-    await supabase
-      .from("members")
-      .delete()
-      .is("user_id", null),
-  );
-
-  const memberRecords = currentMember
-    ? [{ ...currentMember, name: getAuthDisplayName(user) }]
-    : [];
-  for (const name of prepared.members) {
-    if (memberRecords.some((member) => member.name === name)) continue;
-    memberRecords.push(await saveMemberRecord(name));
-  }
-
-  const data = { ...prepared, memberRecords };
-  for (const company of data.companies) {
-    await saveCompanyRecord(company);
-  }
-  for (const chemical of data.chemicals) {
-    await saveChemicalRecord(chemical);
-  }
-  for (const label of data.labels) {
-    await saveLabelRecord(label);
-  }
-  for (const task of data.tasks) {
-    await saveTaskRecord(data, task);
-  }
-
-  assertResult(
-    await supabase
-      .from("app_state")
-      .update({ data_initialized: true })
-      .eq("singleton", true),
-  );
-
-  return loadSharedData();
 }

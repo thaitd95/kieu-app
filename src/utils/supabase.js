@@ -41,12 +41,9 @@ export async function signOut() {
 
 export async function ensureAppUser(user) {
   const client = getSupabaseClient();
-  const { data: appState, error } = await client
-    .rpc("ensure_app_user", {
-      requested_display_name: getAuthDisplayName(user),
-    })
-    .single();
+  const { error } = await client.rpc("ensure_app_user", {
+    requested_display_name: getAuthDisplayName(user),
+  });
 
   if (error) throw error;
-  return appState;
 }
